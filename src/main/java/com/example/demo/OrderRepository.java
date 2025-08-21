@@ -1,5 +1,6 @@
 package com.example.demo;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -42,17 +43,20 @@ public class OrderRepository {
 
     // Method to save items
     private void saveItems(List<Item> items, String orderUUID) {
-        String itemInsertSql = "INSERT INTO order_items (order_UUID, productId, color, size, quantity) " +
-                "VALUES (:order_UUID, :productId, :color, :size, :quantity)";
+        String itemInsertSql = "INSERT INTO order_items (order_UUID, productId, color, size, quantity, price, name) " +
+                "VALUES (:order_UUID, :productId, :color, :size, :quantity, :price, :name)";
         
         for (Item item : items) {
+        	Product product=getProductInfo(item.getProductId());
             MapSqlParameterSource itemParams = new MapSqlParameterSource();
             Map<String, Object> params = Map.of(
                 "order_UUID", orderUUID,  // Linking to the order via UUID
                 "productId", item.getProductId(),
                 "color", item.getColor(),
                 "size", item.getSize(),
-                "quantity", item.getQuantity()
+                "quantity", item.getQuantity(),
+                "price",(product.getPrice()-(product.getPrice()*(product.getDiscount()/100))),
+                "name",product.getName()
             );
 
             itemParams.addValues(params);
@@ -84,6 +88,16 @@ public class OrderRepository {
         return !result.isEmpty();
     }
     
+    public Boolean productAvailability(String id) {
+        String sql = "SELECT COUNT(*) FROM product WHERE id = :id AND availability = 'In Stock'";
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("id", id);
+
+        Integer count = jdbcTemplate.queryForObject(sql, params, Integer.class);
+        return count != null && count > 0;
+    }
+    
     public List<Order> getOrdersByEmail(String email) {
         String sql = "SELECT UUID,serialId,date, status, customer, email, contact, address, " +
                      "deliveryMethod, paymentMethod, payment, processedDate, " +
@@ -97,7 +111,7 @@ public class OrderRepository {
     }
 
     public List<Item> getOrderItemsByEmail(String email) {
-        String sql = "SELECT item_id,productId, color, size, quantity, order_UUID " +
+        String sql = "SELECT item_id,productId, color, size, quantity, order_UUID, price, name " +
                      "FROM order_items WHERE order_UUID IN (SELECT UUID FROM orders WHERE email = :email)";
 
         MapSqlParameterSource params = new MapSqlParameterSource()
@@ -107,7 +121,7 @@ public class OrderRepository {
     }
     
     public Product getProductInfo(String productId) {
-        String sql = "SELECT name, price FROM product WHERE id = :productId";
+        String sql = "SELECT name, price, discount FROM product WHERE id = :productId";
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("productId", productId);

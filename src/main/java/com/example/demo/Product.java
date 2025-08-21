@@ -26,10 +26,12 @@ public class Product {
 	    private double discount;
 	    private double rating;
 	    private List<String> sizes;
+	    private String sizeDetails;
 	    private Map<String, List<String>> colors; // Color -> List of base64-encoded image strings
 	    private String deliveryInfo;
 	    private String returnPolicy;
 	    private String trustInfo;
+	    private String gender;
 }
 
 @Data
@@ -54,6 +56,7 @@ class ProductDTO{
     private String deliveryInfo;
     private String returnPolicy;
     private String trustInfo;
+    private String gender;
 }
 @Data
 @Builder

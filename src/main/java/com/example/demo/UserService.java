@@ -5,8 +5,8 @@ import java.util.Collections;
 import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
@@ -18,6 +18,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import jakarta.mail.internet.MimeMessage;
 
 @Service
 public class UserService {
@@ -35,17 +36,80 @@ public class UserService {
 		return String.format("%06d", new Random().nextInt(999999)); // Generate a 6-digit code
 	}
 
+	
+	
 	public void sendVerificationCode(String email) {
-		String code = generateVerificationCode();
-		SimpleMailMessage message = new SimpleMailMessage();
-		message.setTo(email);
-		message.setSubject("Your Verification Code for Online Shop.");
-		message.setText("Your code is: " + code);
-		mailSender.send(message);
-		userRepository.insertCode(email, code);
+	    String code = generateVerificationCode();
+
+	    try {
+	        MimeMessage message = mailSender.createMimeMessage();
+	        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+	        helper.setFrom("rafeulsagor@example.com", "Online Shop");
+	        helper.setTo(email);
+	        helper.setSubject("Your Verification Code for Online Shop");	        
+
+	        String htmlContent = """
+	                <!DOCTYPE html>
+	                <html lang="en">
+	                <head>
+	                    <meta charset="UTF-8">
+	                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	                    <style>
+	                        body { margin: 0; padding: 0; background-color: #e8ecef; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+	                        .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); overflow: hidden; }
+	                        .header { background: linear-gradient(135deg, #0d4238, #586c90); padding: 20px; text-align: center; color: #ffffff; }
+	                        .header h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: 0.5px; }
+	                        .content { padding: 20px; color: #1f2a44; }
+	                        .content p { font-size: 16px; line-height: 1.7; margin: 0 0 16px; }
+	                        .code-box { background: #eef2f7; border: 2px solid #055858; border-radius: 8px; padding: 16px; text-align: center; margin: 16px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+	                        .code { font-size: 36px; font-weight: 700; color: #055858; letter-spacing: 5px; text-transform: uppercase; }
+	                        .note { font-size: 14px; color: #586c90; margin-top: 8px; font-style: italic; }
+	                        .footer { background: #eef2f7; padding: 16px; text-align: center; font-size: 14px; color: #586c90; border-top: 1px solid #055858; }
+	                        .footer a { color: #055858; text-decoration: none; font-weight: 500; }
+	                        .footer a:hover { text-decoration: underline; }
+	                        @media (max-width: 600px) { 
+	                            .container { margin: 10px; border-radius: 10px; }
+	                            .header { padding: 16px; }
+	                            .header h1 { font-size: 22px; }
+	                            .content { padding: 16px; }
+	                            .code { font-size: 30px; letter-spacing: 3px; }
+	                        }
+	                    </style>
+	                </head>
+	                <body>
+	                    <div class="container">
+	                        <div class="header">
+	                            <h1>Online Shop Verification</h1>
+	                        </div>
+	                        <div class="content">
+	                            <p>Dear Customer,</p>
+	                            <p>Thank you for choosing Online Shop. To complete your verification process, please use the following one-time verification code:</p>
+	                            <div class="code-box">
+	                                <div class="code">%s</div>
+	                                <div class="note">This code is valid for 10 minutes</div>
+	                                <div class="note">Don't share this code with anyone</div>
+	                            </div>
+	                            <p>If you did not initiate this request, please disregard this email or reach out to our support team for assistance.</p>
+	                        </div>
+	                        <div class="footer">
+	                            <p>Best Regards,<br>The Online Shop Team</p>
+	                            <p><a href="https://www.onlineshop.com/support">Contact Support</a> | <a href="https://www.onlineshop.com">Visit Our Website</a></p>
+	                        </div>
+	                    </div>
+	                </body>
+	                </html>
+	                """.formatted(code);
+
+	        helper.setText(htmlContent, true);
+
+	        mailSender.send(message);
+	        userRepository.insertCode(email, code);
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	    }
 	}
 
-	public String sendcode(String email) {
+	public String sendcode(String email){
 		if (!userRepository.doesEmailExistWithPassword(email)) {
 			userRepository.deleteByEmail(email);
 			sendVerificationCode(email);

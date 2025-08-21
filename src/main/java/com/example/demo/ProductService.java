@@ -39,6 +39,15 @@ public class ProductService {
     	
     }
     
+    public List<ProductDTO> getAllTypeBasedProducts(String gender1,String gender2) {
+    	try {
+			return productRepository.getAllTypeBasedProducts(gender1,gender2);
+		} catch (Exception e) {
+			throw new IllegalArgumentException(e.getMessage()); 
+		}
+    	
+    }
+    
     public void DeleteProductById(String id) {
     	productRepository.deleteProductById(id);
     }

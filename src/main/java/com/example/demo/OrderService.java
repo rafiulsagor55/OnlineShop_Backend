@@ -15,6 +15,9 @@ public class OrderService {
 	public void saveOrder(Order order) {
 		for (Item item : order.getItems()) {
 			System.out.println(orderRepository.isProductExist(item.getProductId(), item.getSize(), item.getColor()));
+			if(!orderRepository.productAvailability(item.getProductId())) {
+				throw new IllegalArgumentException("Product " + item.getProductId()+ " is not available now!");
+			}
 			if(!orderRepository.isProductExist(item.getProductId(), item.getSize(), item.getColor())) {
 				throw new IllegalArgumentException("Product is not exist!");
 			}
@@ -30,11 +33,11 @@ public class OrderService {
 	    List<Item> items = orderRepository.getOrderItemsByEmail(email);
 
 	    // 3. Map each item to its corresponding product details
-	    for (Item item : items) {
-	        Product product = orderRepository.getProductInfo(item.getProductId());
-	        item.setName(product.getName());
-	        item.setPrice(product.getPrice());
-	    }
+//	    for (Item item : items) {
+//	        Product product = orderRepository.getProductInfo(item.getProductId());
+//	        item.setName(product.getName());
+//	        item.setPrice(product.getPrice()-(product.getPrice()*(product.getDiscount()/100)));
+//	    }
 
 	    // 4. Associate items with the corresponding order and calculate the total
 	    for (Order order : orders) {
@@ -49,7 +52,7 @@ public class OrderService {
 	        // Calculate total price for the order
 	        double total = 0.0;
 	        for (Item item : orderItems) {
-	            total += item.getPrice() * item.getQuantity();
+	            total += (item.getPrice()) * item.getQuantity();
 	        }
 	        order.setTotal(total);
 	    }

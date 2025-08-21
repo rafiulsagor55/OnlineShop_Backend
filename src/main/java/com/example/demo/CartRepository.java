@@ -54,5 +54,13 @@ public class CartRepository {
         params.put("email", email);
         return JdbcTemplate.query(sql, params, new BeanPropertyRowMapper<>(Cart.class));
     }
+    
+    public void deleteCartItem(String id) {
+		String sql="DELETE FROM cart WHERE id = :id";
+		Map<String, Object> params = new HashMap<>();
+        params.put("id", id);
+        JdbcTemplate.update(sql, params);
+		
+	}
 
 }

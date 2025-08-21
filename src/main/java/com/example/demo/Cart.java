@@ -15,7 +15,6 @@ public class Cart {
     private String productId;
     private String color;
     private String size;
-    // Getters and setters
 }
 
 @Data

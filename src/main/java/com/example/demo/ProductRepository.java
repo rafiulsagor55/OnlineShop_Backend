@@ -25,6 +25,8 @@ public class ProductRepository {
 		productParams.addValue("id", productId);
 
 		Product product = jdbcTemplate.queryForObject(productSql, productParams, new ProductRowMapper());
+		
+		product.setRating(findProductRating(productId));
 
 		// Retrieve sizes related to the product
 		String sizesSql = "SELECT size FROM product_sizes WHERE product_id = :productId";
@@ -63,8 +65,8 @@ public class ProductRepository {
 	// Method to save a product into the database
 	public void saveProduct(Product product) {
 		// Insert product details
-		String insertProductSql = "INSERT INTO product (id, name, description, type, brand, material, category, availability, price, discount, rating, delivery_info, return_policy, trust_info) "
-				+ "VALUES (:id, :name, :description, :type, :brand, :material, :category, :availability, :price, :discount, :rating, :deliveryInfo, :returnPolicy, :trustInfo)";
+		String insertProductSql = "INSERT INTO product (id, name, description, type, brand, material, category, availability, price, discount, rating, delivery_info, return_policy, trust_info, sizeDetails, gender) "
+				+ "VALUES (:id, :name, :description, :type, :brand, :material, :category, :availability, :price, :discount, :rating, :deliveryInfo, :returnPolicy, :trustInfo, :sizeDetails, :gender)";
 
 		MapSqlParameterSource productParams = new MapSqlParameterSource();
 		productParams.addValue("id", product.getId());
@@ -81,6 +83,8 @@ public class ProductRepository {
 		productParams.addValue("deliveryInfo", product.getDeliveryInfo());
 		productParams.addValue("returnPolicy", product.getReturnPolicy());
 		productParams.addValue("trustInfo", product.getTrustInfo());
+		productParams.addValue("sizeDetails", product.getSizeDetails());
+		productParams.addValue("gender", product.getGender());
 
 		jdbcTemplate.update(insertProductSql, productParams);
 
@@ -182,6 +186,66 @@ public class ProductRepository {
     }
     
     
+ // Fetch all products and map them to ProductDTO
+    public List<ProductDTO> getAllTypeBasedProducts(String gender1,String gender2){
+        // SQL query to fetch all products from the database
+    	 String productSql=null;
+    	 MapSqlParameterSource genderParams = new MapSqlParameterSource();
+    	if (gender2==null) {
+    		productSql = "SELECT * FROM product WHERE gender = :gender1";
+    		 genderParams.addValue("gender1", gender1);
+		}
+    	else {
+    		productSql = "SELECT * FROM product WHERE gender = :gender1 OR gender = :gender2";
+   		    genderParams.addValue("gender1", gender1);
+   		    genderParams.addValue("gender2", gender2);
+   		  
+    	}
+           
+        List<ProductDTO> products = jdbcTemplate.query(productSql,genderParams, new ProductDTORowMapper());
+
+        // Iterate through each product and fetch sizes, unique colors, and the first image
+        for (ProductDTO product : products) {
+        	// Fetch rating for each product
+        	System.out.println("product id: "+product.getId());
+        	double rating=findProductRating(product.getId());
+        	System.out.println("Rating :"+ rating);
+        	product.setRating(rating);
+            // Fetch sizes for each product
+            String sizesSql = "SELECT size FROM product_sizes WHERE product_id = :productId";
+            MapSqlParameterSource sizesParams = new MapSqlParameterSource();
+            sizesParams.addValue("productId", product.getId());
+            List<String> sizes = jdbcTemplate.query(sizesSql, sizesParams, new SizeRowMapper());
+            product.setSize(sizes);
+
+            // Step 1: Fetch unique colors for the product
+            String colorsSql = "SELECT DISTINCT color FROM product_colors WHERE product_id = :productId";
+            MapSqlParameterSource colorsParams = new MapSqlParameterSource();
+            colorsParams.addValue("productId", product.getId());
+
+            List<String> colors = jdbcTemplate.query(colorsSql, colorsParams, (rs, rowNum) -> rs.getString("color"));
+            product.setColor(colors);
+
+            // Step 2: Retrieve only the first image for the product
+            String firstImageSql = "SELECT image_data, content_type FROM product_colors WHERE product_id = :productId LIMIT 1";
+            MapSqlParameterSource imageParams = new MapSqlParameterSource();
+            imageParams.addValue("productId", product.getId());
+
+            List<ColorImagePair> colorImagePairs = jdbcTemplate.query(firstImageSql, imageParams, new ImageRowMapper());
+
+            // If there's a first image, store it in the DTO
+            if (!colorImagePairs.isEmpty()) {
+                ColorImagePair firstImage = colorImagePairs.get(0); // Get the first image
+                String base64Image = Base64.getEncoder().encodeToString(firstImage.getImageData());
+                String firstImageUrl = "data:" + firstImage.getContentType() + ";base64," + base64Image;
+                product.setImageData(firstImageUrl);  // Set the first image URL
+            }
+        }
+
+        return products;  // Return the list of ProductDTOs
+    }
+    
+    
     public String getImageUrlByProductIdAndColor(String productId, String color) {
         String sql = "SELECT image_data, content_type FROM product_colors WHERE product_id = :productId AND color = :color LIMIT 1";
 
@@ -210,6 +274,7 @@ public class ProductRepository {
 			product.setId(rs.getString("id"));
 			product.setName(rs.getString("name"));
 			product.setDescription(rs.getString("description"));
+			product.setSizeDetails(rs.getString("sizeDetails"));
 			product.setType(rs.getString("type"));
 			product.setBrand(rs.getString("brand"));
 			product.setMaterial(rs.getString("material"));
@@ -221,6 +286,8 @@ public class ProductRepository {
 			product.setDeliveryInfo(rs.getString("delivery_info"));
 			product.setReturnPolicy(rs.getString("return_policy"));
 			product.setTrustInfo(rs.getString("trust_info"));
+			product.setGender(rs.getString("gender"));
+			
 			return product;
 		}
 	}
@@ -254,6 +321,24 @@ public class ProductRepository {
 		return count > 0;
 	}
 	
+//	public double findProductRating(String productId) {
+//		String sql="SELECT AVG(rating) FROM ratings WHERE product_id = :product_id";
+//		MapSqlParameterSource params = new MapSqlParameterSource();
+//		params.addValue("product_id", productId);
+//		return jdbcTemplate.queryForObject(sql, params, Double.class);
+//	}
+
+	public double findProductRating(String productId) {
+	    String sql = "SELECT AVG(rating) FROM ratings WHERE product_id = :product_id";
+	    MapSqlParameterSource params = new MapSqlParameterSource();
+	    params.addValue("product_id", productId);
+	    try {
+	        Double result = jdbcTemplate.queryForObject(sql, params, Double.class);
+	        return result != null ? result : 0.0;
+	    } catch (Exception e) {
+	        return 0.0;
+	    }
+	}
 	private static class ProductDTORowMapper implements RowMapper<ProductDTO> {
 	    @Override
 	    public ProductDTO mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -272,6 +357,7 @@ public class ProductRepository {
 	        productDTO.setDeliveryInfo(rs.getString("delivery_info"));
 	        productDTO.setReturnPolicy(rs.getString("return_policy"));
 	        productDTO.setTrustInfo(rs.getString("trust_info"));
+	        productDTO.setGender(rs.getString("gender"));
 	        return productDTO;
 	    }
 	}

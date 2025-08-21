@@ -55,5 +55,9 @@ public class CartService {
         }
         return cartDTOs;
     }
+    
+    public void DeleteFromCart(String id) {
+    	cartRepository.deleteCartItem(id);
+    }
 
 }
