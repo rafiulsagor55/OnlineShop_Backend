@@ -1,0 +1,164 @@
+Table: users
+Columns:
+	email	varchar(255) PK
+	name	varchar(100)
+	image_data	longblob
+	created_at	timestamp
+	image_path	varchar(500)
+	content_type	varchar(50)
+
+Table: passwords
+Columns:
+	email	varchar(255) PK
+	password	varchar(255)
+	count	int
+
+Table: codes
+Columns:
+	email	varchar(255) PK
+	code	varchar(255)
+	count	int
+	created_at	timestamp
+
+Table: product
+Columns:
+	id	varchar(255) PK
+	name	varchar(255)
+	description	text
+	type	varchar(255)
+	brand	varchar(255)
+	material	varchar(255)
+	category	varchar(255)
+	availability	varchar(255)
+	price	double
+	discount	double
+	rating	double
+	delivery_info	text
+	return_policy	text
+	trust_info	text
+	sizeDetails	text
+	gender	varchar(20)
+
+Table: product_colors
+Columns:
+	id	int AI PK
+	product_id	varchar(255)
+	color	varchar(255)
+	image_data	longblob
+	content_type	varchar(255)
+
+Table: product_sizes
+Columns:
+	id	int AI PK
+	product_id	varchar(255)
+	size	varchar(255)
+
+Table: product_filters
+Columns:
+	id	bigint AI PK
+	filter_type	varchar(50)
+	filter_value	varchar(100)
+	gender	varchar(20)
+
+Table: cart
+Columns:
+	id	int AI PK
+	email	varchar(255)
+	product_id	varchar(255)
+	color	varchar(255)
+	size	varchar(255)
+	created_at	timestamp
+
+Table: orders
+Columns:
+	UUID	varchar(60) PK
+	serialId	bigint AI
+	date	timestamp
+	status	varchar(50)
+	customer	varchar(100)
+	email	varchar(100)
+	contact	varchar(20)
+	address	varchar(255)
+	deliveryMethod	varchar(50)
+	paymentMethod	varchar(50)
+	payment	varchar(50)
+	processedDate	timestamp
+	shippedDate	timestamp
+	deliveredDate	timestamp
+	readyDate	timestamp
+	pickedDate	timestamp
+
+
+Table: order_items
+Columns:
+	item_id	bigint AI PK
+	order_UUID	varchar(60)
+	productId	varchar(50)
+	color	varchar(50)
+	size	varchar(20)
+	quantity	int
+	price	double
+	name	varchar(50)
+
+Table: order_items
+Columns:
+	item_id	bigint AI PK
+	order_UUID	varchar(60)
+	productId	varchar(50)
+	color	varchar(50)
+	size	varchar(20)
+	quantity	int
+	price	double
+	name	varchar(50)
+
+Table: reviews
+Columns:
+	id	bigint AI PK
+	product_id	varchar(255)
+	user_email	varchar(255)
+	review_text	text
+	created_at	timestamp
+
+Table: review_votes
+Columns:
+	id	bigint AI PK
+	review_id	bigint
+	user_email	varchar(255)
+	vote_type	varchar(50)
+	created_at	timestamp
+
+
+Table: questions
+Columns:
+	id	bigint AI PK
+	product_id	varchar(255)
+	user_email	varchar(255)
+	question	text
+	created_at	timestamp
+
+
+Table: answers
+Columns:
+	id	bigint AI PK
+	question_id	bigint
+	user_email	varchar(255)
+	answer	text
+	created_at	timestamp
+
+Related Tables:
+
+	Target	questions (question_id → id)
+	On Update	RESTRICT
+	On Delete	CASCADE
+	Target	users (user_email → email)
+	On Update	RESTRICT
+	On Delete	CASCADE
+
+Table: votes
+Columns:
+	id	bigint AI PK
+	entity_type	varchar(50)
+	entity_id	bigint
+	user_email	varchar(255)
+	vote_type	varchar(50)
+	created_at	timestamp
