@@ -30,8 +30,26 @@ public class Order {
     private Timestamp deliveredDate;
     private Timestamp readyDate;
     private Timestamp pickedDate;
+    private Timestamp cancelledDate;
     private List<Item> items;
     private double total;
+
+}
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+class updateOrder {
+	private Long serialId;
+    private String status;
+    private String payment;
+    private Timestamp processedDate;
+    private Timestamp shippedDate;
+    private Timestamp deliveredDate;
+    private Timestamp readyDate;
+    private Timestamp pickedDate;
+    private Timestamp cancelledDate;
 
 }
 

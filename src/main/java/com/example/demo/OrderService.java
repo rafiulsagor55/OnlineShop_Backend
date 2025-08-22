@@ -59,5 +59,12 @@ public class OrderService {
 
 	    return orders.stream().sorted(Comparator.comparing(Order::getSerialId).reversed()).collect(Collectors.toList());
 	}
+	
+	public void updateOrder(updateOrder updateOrder) {
+	    if (updateOrder.getSerialId() == null) {
+	        throw new IllegalArgumentException("SerialId cannot be null");
+	    }
+	    orderRepository.updateOrder(updateOrder);
+	}
 
 }

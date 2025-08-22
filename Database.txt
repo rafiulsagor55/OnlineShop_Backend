@@ -1,164 +1,178 @@
-Table: users
-Columns:
-	email	varchar(255) PK
-	name	varchar(100)
-	image_data	longblob
-	created_at	timestamp
-	image_path	varchar(500)
-	content_type	varchar(50)
+CREATE TABLE users (
+ email VARCHAR(255) PRIMARY KEY,
+ name VARCHAR(100),
+ image_data LONGBLOB,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ image_path VARCHAR(500),
+ content_type VARCHAR(500)
+ );
+ 
+ 
+ CREATE TABLE passwords (
+    email VARCHAR(255),
+    password VARCHAR(255) NOT NULL,
+    count INT DEFAULT 0,
+    PRIMARY KEY (email),
+    FOREIGN KEY (email) REFERENCES users(email) ON DELETE CASCADE
+);
 
-Table: passwords
-Columns:
-	email	varchar(255) PK
-	password	varchar(255)
-	count	int
+CREATE TABLE codes (
+    email VARCHAR(255),
+    code VARCHAR(255) NOT NULL,
+    count INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (email)
+);
 
-Table: codes
-Columns:
-	email	varchar(255) PK
-	code	varchar(255)
-	count	int
-	created_at	timestamp
-
-Table: product
-Columns:
-	id	varchar(255) PK
-	name	varchar(255)
-	description	text
-	type	varchar(255)
-	brand	varchar(255)
-	material	varchar(255)
-	category	varchar(255)
-	availability	varchar(255)
-	price	double
-	discount	double
-	rating	double
-	delivery_info	text
-	return_policy	text
-	trust_info	text
-	sizeDetails	text
-	gender	varchar(20)
-
-Table: product_colors
-Columns:
-	id	int AI PK
-	product_id	varchar(255)
-	color	varchar(255)
-	image_data	longblob
-	content_type	varchar(255)
-
-Table: product_sizes
-Columns:
-	id	int AI PK
-	product_id	varchar(255)
-	size	varchar(255)
-
-Table: product_filters
-Columns:
-	id	bigint AI PK
-	filter_type	varchar(50)
-	filter_value	varchar(100)
-	gender	varchar(20)
-
-Table: cart
-Columns:
-	id	int AI PK
-	email	varchar(255)
-	product_id	varchar(255)
-	color	varchar(255)
-	size	varchar(255)
-	created_at	timestamp
-
-Table: orders
-Columns:
-	UUID	varchar(60) PK
-	serialId	bigint AI
-	date	timestamp
-	status	varchar(50)
-	customer	varchar(100)
-	email	varchar(100)
-	contact	varchar(20)
-	address	varchar(255)
-	deliveryMethod	varchar(50)
-	paymentMethod	varchar(50)
-	payment	varchar(50)
-	processedDate	timestamp
-	shippedDate	timestamp
-	deliveredDate	timestamp
-	readyDate	timestamp
-	pickedDate	timestamp
+CREATE TABLE product (
+    id VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255),
+    description TEXT,
+    type VARCHAR(255),
+    brand VARCHAR(255),
+    material VARCHAR(255),
+    category VARCHAR(255),
+    availability VARCHAR(255),
+    price DOUBLE,
+    discount DOUBLE,
+    rating DOUBLE DEFAULT 0,
+    delivery_info TEXT,
+    return_policy TEXT,
+    trust_info TEXT,
+    sizeDetails TEXT,
+    gender varchar(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 
-Table: order_items
-Columns:
-	item_id	bigint AI PK
-	order_UUID	varchar(60)
-	productId	varchar(50)
-	color	varchar(50)
-	size	varchar(20)
-	quantity	int
-	price	double
-	name	varchar(50)
+CREATE TABLE product_sizes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id VARCHAR(255),
+    size VARCHAR(255),
+    FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE
+);
 
-Table: order_items
-Columns:
-	item_id	bigint AI PK
-	order_UUID	varchar(60)
-	productId	varchar(50)
-	color	varchar(50)
-	size	varchar(20)
-	quantity	int
-	price	double
-	name	varchar(50)
+CREATE TABLE product_colors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id VARCHAR(255),
+    color VARCHAR(255),
+    image_data LONGBLOB,
+    content_type VARCHAR(255),
+    FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE
+);
 
-Table: reviews
-Columns:
-	id	bigint AI PK
-	product_id	varchar(255)
-	user_email	varchar(255)
-	review_text	text
-	created_at	timestamp
+CREATE TABLE cart (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+	email VARCHAR(255),
+    product_id VARCHAR(255),
+	color VARCHAR(255),
+    size VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (email) REFERENCES users(email) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE
+);
 
-Table: review_votes
-Columns:
-	id	bigint AI PK
-	review_id	bigint
-	user_email	varchar(255)
-	vote_type	varchar(50)
-	created_at	timestamp
+CREATE TABLE orders (
+    UUID VARCHAR(60) PRIMARY KEY,
+    serialId BIGINT AUTO_INCREMENT UNIQUE,
+    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(50),
+    customer VARCHAR(100),
+    email VARCHAR(100),
+    contact VARCHAR(20),
+    address VARCHAR(255),
+    deliveryMethod VARCHAR(50),
+    paymentMethod VARCHAR(50),
+    payment VARCHAR(50),
+    processedDate TIMESTAMP,
+    shippedDate TIMESTAMP,
+    deliveredDate TIMESTAMP,
+    readyDate TIMESTAMP,
+    pickedDate TIMESTAMP,
+    cancelledDate TIMESTAMP
+);
 
 
-Table: questions
-Columns:
-	id	bigint AI PK
-	product_id	varchar(255)
-	user_email	varchar(255)
-	question	text
-	created_at	timestamp
+CREATE TABLE order_items (
+	item_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_UUID VARCHAR(60),
+    productId VARCHAR(50),
+    color VARCHAR(50),
+    size VARCHAR(20),
+    quantity INT,
+    price DOUBLE,
+    name varchar(50),
+    FOREIGN KEY (order_UUID) REFERENCES orders(UUID) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS product_filters (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    filter_type VARCHAR(50) NOT NULL,
+    filter_value VARCHAR(100) NOT NULL,
+    gender VARCHAR(20),
+    UNIQUE KEY unique_filter (filter_type, filter_value, gender)
+);
+
+CREATE TABLE questions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    product_id VARCHAR(255) NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    question TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_email) REFERENCES users(email) on delete cascade,
+    FOREIGN KEY (product_id) REFERENCES product(id) on delete cascade
+);
+
+CREATE TABLE answers (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    question_id BIGINT NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    answer TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE
+);
+
+CREATE TABLE votes (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    entity_type VARCHAR(50) NOT NULL, -- 'question' or 'answer'
+    entity_id BIGINT NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    vote_type VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE,
+    UNIQUE (entity_type, entity_id, user_email)
+);
+
+CREATE TABLE reviews (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    product_id VARCHAR(255) NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    review_text TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE
+);
 
 
-Table: answers
-Columns:
-	id	bigint AI PK
-	question_id	bigint
-	user_email	varchar(255)
-	answer	text
-	created_at	timestamp
+CREATE TABLE ratings (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    product_id VARCHAR(255) NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
+    UNIQUE (product_id, user_email)
+);
 
-Related Tables:
-
-	Target	questions (question_id → id)
-	On Update	RESTRICT
-	On Delete	CASCADE
-	Target	users (user_email → email)
-	On Update	RESTRICT
-	On Delete	CASCADE
-
-Table: votes
-Columns:
-	id	bigint AI PK
-	entity_type	varchar(50)
-	entity_id	bigint
-	user_email	varchar(255)
-	vote_type	varchar(50)
-	created_at	timestamp
+CREATE TABLE review_votes (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    review_id BIGINT NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    vote_type VARCHAR(50) NOT NULL CHECK (vote_type IN ('like', 'dislike')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE,
+    UNIQUE (review_id, user_email)
+);

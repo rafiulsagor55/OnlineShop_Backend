@@ -26,7 +26,7 @@ public class ProductRepository {
 
 		Product product = jdbcTemplate.queryForObject(productSql, productParams, new ProductRowMapper());
 		
-		product.setRating(findProductRating(productId));
+//		product.setRating(findProductRating(productId));
 
 		// Retrieve sizes related to the product
 		String sizesSql = "SELECT size FROM product_sizes WHERE product_id = :productId";
@@ -146,7 +146,7 @@ public class ProductRepository {
 	// Fetch all products and map them to ProductDTO
     public List<ProductDTO> getAllProducts() {
         // SQL query to fetch all products from the database
-        String productSql = "SELECT * FROM product";
+        String productSql = "SELECT * FROM product ORDER BY rating DESC";
         List<ProductDTO> products = jdbcTemplate.query(productSql, new ProductDTORowMapper());
 
         // Iterate through each product and fetch sizes, unique colors, and the first image
@@ -185,32 +185,19 @@ public class ProductRepository {
         return products;  // Return the list of ProductDTOs
     }
     
-    
  // Fetch all products and map them to ProductDTO
-    public List<ProductDTO> getAllTypeBasedProducts(String gender1,String gender2){
+    public List<ProductDTO> getRelatedProducts(String type, String category, String id) {
         // SQL query to fetch all products from the database
-    	 String productSql=null;
-    	 MapSqlParameterSource genderParams = new MapSqlParameterSource();
-    	if (gender2==null) {
-    		productSql = "SELECT * FROM product WHERE gender = :gender1";
-    		 genderParams.addValue("gender1", gender1);
-		}
-    	else {
-    		productSql = "SELECT * FROM product WHERE gender = :gender1 OR gender = :gender2";
-   		    genderParams.addValue("gender1", gender1);
-   		    genderParams.addValue("gender2", gender2);
-   		  
-    	}
-           
-        List<ProductDTO> products = jdbcTemplate.query(productSql,genderParams, new ProductDTORowMapper());
+    	String productSql = "SELECT * FROM product WHERE type = :type AND category = :category AND id != :id ORDER BY rating DESC";
 
+    	MapSqlParameterSource relatedParams = new MapSqlParameterSource();
+    	relatedParams.addValue("type", type);
+    	relatedParams.addValue("category", category);
+    	relatedParams.addValue("id", id);
+
+    	List<ProductDTO> products = jdbcTemplate.query(productSql, relatedParams, new ProductDTORowMapper());
         // Iterate through each product and fetch sizes, unique colors, and the first image
         for (ProductDTO product : products) {
-        	// Fetch rating for each product
-        	System.out.println("product id: "+product.getId());
-        	double rating=findProductRating(product.getId());
-        	System.out.println("Rating :"+ rating);
-        	product.setRating(rating);
             // Fetch sizes for each product
             String sizesSql = "SELECT size FROM product_sizes WHERE product_id = :productId";
             MapSqlParameterSource sizesParams = new MapSqlParameterSource();
@@ -240,6 +227,158 @@ public class ProductRepository {
                 String firstImageUrl = "data:" + firstImage.getContentType() + ";base64," + base64Image;
                 product.setImageData(firstImageUrl);  // Set the first image URL
             }
+        }
+
+        return products;  // Return the list of ProductDTOs
+    }
+    
+    
+    public List<ProductDTO> getAllTypeBasedProducts(String gender1,String gender2){
+        // SQL query to fetch all products from the database
+    	 String productSql=null;
+    	 MapSqlParameterSource genderParams = new MapSqlParameterSource();
+    	if (gender2==null) {
+    		productSql = "SELECT * FROM product WHERE gender = :gender1 ORDER BY created_at DESC";
+    		 genderParams.addValue("gender1", gender1);
+		}
+    	else {
+    		productSql = "SELECT * FROM product WHERE gender = :gender1 OR gender = :gender2 ORDER BY created_at DESC";
+   		    genderParams.addValue("gender1", gender1);
+   		    genderParams.addValue("gender2", gender2);
+   		  
+    	}
+           
+        List<ProductDTO> products = jdbcTemplate.query(productSql,genderParams, new ProductDTORowMapper());
+
+        // Iterate through each product and fetch sizes, unique colors, and the first image
+        for (ProductDTO product : products) {
+        	
+            // Fetch sizes for each product
+            String sizesSql = "SELECT size FROM product_sizes WHERE product_id = :productId";
+            MapSqlParameterSource sizesParams = new MapSqlParameterSource();
+            sizesParams.addValue("productId", product.getId());
+            List<String> sizes = jdbcTemplate.query(sizesSql, sizesParams, new SizeRowMapper());
+            product.setSize(sizes);
+
+            // Step 1: Fetch unique colors for the product
+            String colorsSql = "SELECT DISTINCT color FROM product_colors WHERE product_id = :productId";
+            MapSqlParameterSource colorsParams = new MapSqlParameterSource();
+            colorsParams.addValue("productId", product.getId());
+
+            List<String> colors = jdbcTemplate.query(colorsSql, colorsParams, (rs, rowNum) -> rs.getString("color"));
+            product.setColor(colors);
+
+            // Step 2: Retrieve only the first image for the product
+            String firstImageSql = "SELECT image_data, content_type FROM product_colors WHERE product_id = :productId LIMIT 1";
+            MapSqlParameterSource imageParams = new MapSqlParameterSource();
+            imageParams.addValue("productId", product.getId());
+
+            List<ColorImagePair> colorImagePairs = jdbcTemplate.query(firstImageSql, imageParams, new ImageRowMapper());
+
+            // If there's a first image, store it in the DTO
+            if (!colorImagePairs.isEmpty()) {
+                ColorImagePair firstImage = colorImagePairs.get(0); // Get the first image
+                String base64Image = Base64.getEncoder().encodeToString(firstImage.getImageData());
+                String firstImageUrl = "data:" + firstImage.getContentType() + ";base64," + base64Image;
+                product.setImageData(firstImageUrl);  // Set the first image URL
+            }
+        }
+
+        return products;  // Return the list of ProductDTOs
+    }
+    
+    public List<ProductDTO> getAllTypeBasedProductsLimit(String gender1,String gender2){
+        // SQL query to fetch all products from the database
+    	 String productSql=null;
+    	 MapSqlParameterSource genderParams = new MapSqlParameterSource();
+    	if (gender2==null) {
+    		productSql = "SELECT * FROM product WHERE gender = :gender1 ORDER BY rating DESC LIMIT 10";
+    		 genderParams.addValue("gender1", gender1);
+    		
+		}
+    	else {
+    		productSql = "SELECT * FROM product WHERE gender = :gender1 OR gender = :gender2 ORDER BY rating DESC LIMIT 10";
+   		    genderParams.addValue("gender1", gender1);
+   		    genderParams.addValue("gender2", gender2);
+   		   
+   		  
+    	}
+           
+        List<ProductDTO> products = jdbcTemplate.query(productSql,genderParams, new ProductDTORowMapper());
+
+        // Iterate through each product and fetch sizes, unique colors, and the first image
+        for (ProductDTO product : products) {
+        	
+            // Fetch sizes for each product
+            String sizesSql = "SELECT size FROM product_sizes WHERE product_id = :productId";
+            MapSqlParameterSource sizesParams = new MapSqlParameterSource();
+            sizesParams.addValue("productId", product.getId());
+            List<String> sizes = jdbcTemplate.query(sizesSql, sizesParams, new SizeRowMapper());
+            product.setSize(sizes);
+
+            // Step 1: Fetch unique colors for the product
+            String colorsSql = "SELECT DISTINCT color FROM product_colors WHERE product_id = :productId";
+            MapSqlParameterSource colorsParams = new MapSqlParameterSource();
+            colorsParams.addValue("productId", product.getId());
+
+            List<String> colors = jdbcTemplate.query(colorsSql, colorsParams, (rs, rowNum) -> rs.getString("color"));
+            product.setColor(colors);
+
+            // Step 2: Retrieve only the first image for the product
+            String firstImageSql = "SELECT image_data, content_type FROM product_colors WHERE product_id = :productId LIMIT 1";
+            MapSqlParameterSource imageParams = new MapSqlParameterSource();
+            imageParams.addValue("productId", product.getId());
+
+            List<ColorImagePair> colorImagePairs = jdbcTemplate.query(firstImageSql, imageParams, new ImageRowMapper());
+
+            // If there's a first image, store it in the DTO
+            if (!colorImagePairs.isEmpty()) {
+                ColorImagePair firstImage = colorImagePairs.get(0); // Get the first image
+                String base64Image = Base64.getEncoder().encodeToString(firstImage.getImageData());
+                String firstImageUrl = "data:" + firstImage.getContentType() + ";base64," + base64Image;
+                product.setImageData(firstImageUrl);  // Set the first image URL
+            }
+        }
+
+        return products;
+    }
+    
+    
+    public List<ProductDTO> getAllTypeBasedProductsAdmin(String gender1,String gender2){
+        // SQL query to fetch all products from the database
+    	 String productSql=null;
+    	 MapSqlParameterSource genderParams = new MapSqlParameterSource();
+    	if (gender2==null) {
+    		productSql = "SELECT * FROM product WHERE gender = :gender1 ORDER BY created_at DESC";
+    		 genderParams.addValue("gender1", gender1);
+		}
+    	else {
+    		productSql = "SELECT * FROM product WHERE gender = :gender1 OR gender = :gender2 ORDER BY created_at DESC";
+   		    genderParams.addValue("gender1", gender1);
+   		    genderParams.addValue("gender2", gender2);
+   		  
+    	}
+           
+        List<ProductDTO> products = jdbcTemplate.query(productSql,genderParams, new ProductDTORowMapper());
+
+        // Iterate through each product and fetch sizes, unique colors, and the first image
+        for (ProductDTO product : products) {
+        	
+            // Fetch sizes for each product
+            String sizesSql = "SELECT size FROM product_sizes WHERE product_id = :productId";
+            MapSqlParameterSource sizesParams = new MapSqlParameterSource();
+            sizesParams.addValue("productId", product.getId());
+            List<String> sizes = jdbcTemplate.query(sizesSql, sizesParams, new SizeRowMapper());
+            product.setSize(sizes);
+
+            // Step 1: Fetch unique colors for the product
+            String colorsSql = "SELECT DISTINCT color FROM product_colors WHERE product_id = :productId";
+            MapSqlParameterSource colorsParams = new MapSqlParameterSource();
+            colorsParams.addValue("productId", product.getId());
+
+            List<String> colors = jdbcTemplate.query(colorsSql, colorsParams, (rs, rowNum) -> rs.getString("color"));
+            product.setColor(colors);
+
         }
 
         return products;  // Return the list of ProductDTOs

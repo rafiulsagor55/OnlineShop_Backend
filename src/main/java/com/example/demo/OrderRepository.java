@@ -128,6 +128,28 @@ public class OrderRepository {
 
         return jdbcTemplate.queryForObject(sql, params, new BeanPropertyRowMapper<>(Product.class));
     }
+    
+    public void updateOrder(updateOrder updateOrder) {
+        String sql = "UPDATE orders SET status = :status, payment = :payment, processedDate = :processedDate, " +
+                     "shippedDate = :shippedDate, deliveredDate = :deliveredDate, readyDate = :readyDate, " +
+                     "pickedDate = :pickedDate, cancelledDate = :cancelledDate WHERE serialId = :serialId";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("serialId", updateOrder.getSerialId())
+                .addValue("status", updateOrder.getStatus())
+                .addValue("payment", updateOrder.getPayment())
+                .addValue("processedDate", updateOrder.getProcessedDate())
+                .addValue("shippedDate", updateOrder.getShippedDate())
+                .addValue("deliveredDate", updateOrder.getDeliveredDate())
+                .addValue("readyDate", updateOrder.getReadyDate())
+                .addValue("pickedDate", updateOrder.getPickedDate())
+                .addValue("cancelledDate", updateOrder.getCancelledDate());
+
+        int rowsAffected = jdbcTemplate.update(sql, params);
+        if (rowsAffected == 0) {
+            throw new IllegalArgumentException("No order found with serialId: " + updateOrder.getSerialId());
+        }
+    }
 
 
 

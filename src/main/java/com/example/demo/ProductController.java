@@ -47,6 +47,11 @@ public class ProductController {
         return ResponseEntity.ok(productService.getAllProducts());
     }
     
+    @GetMapping("/get-all-related-products")
+    public ResponseEntity<?> GetRelatedProducts(@RequestParam String type,@RequestParam String category,@RequestParam String id) {
+        return ResponseEntity.ok(productService.getRelatedProducts(type,category,id));
+    }
+    
     @GetMapping("/get-all-mens-products")
     public ResponseEntity<?> GetAllMensProducts() {
         return ResponseEntity.ok(productService.getAllTypeBasedProducts("Male","Unisex"));
@@ -65,6 +70,46 @@ public class ProductController {
     @GetMapping("/get-all-unisex-products")
     public ResponseEntity<?> GetAllUnisexProducts() {
         return ResponseEntity.ok(productService.getAllTypeBasedProducts("Unisex",null));
+    }
+    
+    @GetMapping("/get-all-mens-products-admin")
+    public ResponseEntity<?> GetAllMensProductsAdmin() {
+        return ResponseEntity.ok(productService.getAllTypeBasedProductsadmin("Male","Unisex"));
+    }
+    
+    @GetMapping("/get-all-womens-products-admin")
+    public ResponseEntity<?> GetAllWomensProductsAdmin() {
+        return ResponseEntity.ok(productService.getAllTypeBasedProductsadmin("Female","Unisex"));
+    }
+    
+    @GetMapping("/get-all-kids-products-admin")
+    public ResponseEntity<?> GetAllKidsProductsAdmin() {
+        return ResponseEntity.ok(productService.getAllTypeBasedProductsadmin("Kids",null));
+    }
+    
+    @GetMapping("/get-all-unisex-products-admin")
+    public ResponseEntity<?> GetAllUnisexProductsAdmin() {
+        return ResponseEntity.ok(productService.getAllTypeBasedProductsadmin("Unisex",null));
+    }
+    
+    @GetMapping("/get-all-mens-products-limit")
+    public ResponseEntity<?> GetAllMensProductsLimit() {
+        return ResponseEntity.ok(productService.getAllTypeBasedProductsLimit("Male","Unisex"));
+    }
+    
+    @GetMapping("/get-all-womens-products-limit")
+    public ResponseEntity<?> GetAllWomensProductsLimit() {
+        return ResponseEntity.ok(productService.getAllTypeBasedProductsLimit("Female","Unisex"));
+    }
+    
+    @GetMapping("/get-all-kids-products-limit")
+    public ResponseEntity<?> GetAllKidsProductsLimit() {
+        return ResponseEntity.ok(productService.getAllTypeBasedProductsLimit("Kids",null));
+    }
+    
+    @GetMapping("/get-all-unisex-products-limit")
+    public ResponseEntity<?> GetAllUnisexProductsLimit() {
+        return ResponseEntity.ok(productService.getAllTypeBasedProductsLimit("Unisex",null));
     }
     
     @PostMapping("/save-edited-product")

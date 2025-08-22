@@ -39,9 +39,36 @@ public class ProductService {
     	
     }
     
+    public List<ProductDTO> getRelatedProducts(String type,String category,String id) {
+    	try {
+			return productRepository.getRelatedProducts(type,category,id);
+		} catch (Exception e) {
+			throw new IllegalArgumentException(e.getMessage()); 
+		}
+    	
+    }
+    
     public List<ProductDTO> getAllTypeBasedProducts(String gender1,String gender2) {
     	try {
 			return productRepository.getAllTypeBasedProducts(gender1,gender2);
+		} catch (Exception e) {
+			throw new IllegalArgumentException(e.getMessage()); 
+		}
+    	
+    }
+    
+    public List<ProductDTO> getAllTypeBasedProductsadmin(String gender1,String gender2) {
+    	try {
+			return productRepository.getAllTypeBasedProductsAdmin(gender1,gender2);
+		} catch (Exception e) {
+			throw new IllegalArgumentException(e.getMessage()); 
+		}
+    	
+    }
+    
+    public List<ProductDTO> getAllTypeBasedProductsLimit(String gender1,String gender2) {
+    	try {
+			return productRepository.getAllTypeBasedProductsLimit(gender1,gender2);
 		} catch (Exception e) {
 			throw new IllegalArgumentException(e.getMessage()); 
 		}

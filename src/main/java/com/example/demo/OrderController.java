@@ -43,6 +43,29 @@ public class OrderController {
 		return ResponseEntity.ok("Order placed successfully.");
 	}
 	
+	@PostMapping("/update-order")
+	public ResponseEntity<?> updateOrder(@RequestBody updateOrder updateOrder, 
+	                                    @CookieValue(name = "token", required = false) String jwt, 
+	                                    HttpServletRequest request) {
+	    try {
+	        String userAgent = request.getHeader("User-Agent");
+	        String ip = request.getHeader("X-Forwarded-For");
+	        if (ip == null) {
+	            ip = request.getRemoteAddr();
+	        }
+	        if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+	            orderService.updateOrder(updateOrder);
+	            return ResponseEntity.ok("Order updated successfully.");
+	        } else {
+	            throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again to continue.");
+	        }
+	    } catch (IllegalArgumentException e) {
+	        return ResponseEntity.badRequest().body(e.getMessage());
+	    } catch (Exception e) {
+	        return ResponseEntity.status(500).body("An error occurred while updating the order: " + e.getMessage());
+	    }
+	}
+	
 	@GetMapping("/get-all-order-item")
 	public ResponseEntity<?>GetorderItems(@CookieValue(name = "token", required = false) String jwt, HttpServletRequest request){
 		try {

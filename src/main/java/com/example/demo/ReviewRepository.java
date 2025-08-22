@@ -31,6 +31,7 @@ public class ReviewRepository {
     }
 
     public Long insertRating(String productId, String userEmail, int rating) {
+    	
         String sql = "INSERT INTO ratings (product_id, user_email, rating, created_at) " +
                      "VALUES (:productId, :userEmail, :rating, CURRENT_TIMESTAMP)";
         MapSqlParameterSource params = new MapSqlParameterSource()
@@ -40,8 +41,11 @@ public class ReviewRepository {
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"id"});
+        
+        insertRating(productId,  findProductRating(productId));
         return keyHolder.getKey().longValue();
     }
+    
 
     public boolean updateRating(String productId, String userEmail, int newRating) {
         String sql = "UPDATE ratings SET rating = :rating WHERE product_id = :productId AND user_email = :userEmail";
@@ -50,6 +54,7 @@ public class ReviewRepository {
                 .addValue("userEmail", userEmail)
                 .addValue("rating", newRating);
         int rows = jdbcTemplate.update(sql, params);
+        insertRating(productId,  findProductRating(productId));
         return rows > 0;
     }
 
@@ -59,6 +64,7 @@ public class ReviewRepository {
                 .addValue("productId", productId)
                 .addValue("userEmail", userEmail);
         int rows = jdbcTemplate.update(sql, params);
+        insertRating(productId,  findProductRating(productId));
         return rows > 0;
     }
 
@@ -185,5 +191,23 @@ public class ReviewRepository {
                 .rating(rs.getInt("rating"))
                 .createdAt(rs.getTimestamp("created_at"))
                 .build();
+    }
+    public double findProductRating(String productId) {
+	    String sql = "SELECT AVG(rating) FROM ratings WHERE product_id = :product_id";
+	    MapSqlParameterSource params = new MapSqlParameterSource();
+	    params.addValue("product_id", productId);
+	    try {
+	        Double result = jdbcTemplate.queryForObject(sql, params, Double.class);
+	        return result != null ? result : 0.0;
+	    } catch (Exception e) {
+	        return 0.0;
+	    }
+	}
+    public void insertRating(String id,double rating) {
+    	String sql="UPDATE product set rating = :rating WHERE id = :id";
+    	MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("rating", rating);
+    	jdbcTemplate.update(sql, params);
     }
 }
