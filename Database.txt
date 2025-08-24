@@ -176,3 +176,11 @@ CREATE TABLE review_votes (
     FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE,
     UNIQUE (review_id, user_email)
 );
+
+ CREATE TABLE admin (
+  email VARCHAR(255)  PRIMARY KEY,
+  password VARCHAR(255) NOT NULL
+);
+
+ INSERT INTO admin (email, password)
+ VALUES ('onlineshop@gmail.com', '123456');

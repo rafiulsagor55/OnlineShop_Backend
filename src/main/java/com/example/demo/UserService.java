@@ -31,6 +31,9 @@ public class UserService {
 	private final String CLIENT_ID = "421406248780-c6pukobh1dr5blgsa7u4ee7l3luml5iu.apps.googleusercontent.com";
 	private final byte[] SECRET = Base64.getEncoder()
 			.encode("sQe12Tg7Ld9BxkMfJpRzWuYx9AbVcDeFgHiJkLmNoPqRsTuVwXyZ1234567890ab".getBytes());
+	
+	private final byte[] SECRET_ADMIN = Base64.getEncoder()
+			.encode("aZx9Yw8Vx7Ut6Sr5Qp4No3Lm2Jk1Hg0Fi9Ed8Cb7Wa6Tv5Ru4Mt3Lp2Kn1".getBytes());
 
 	public String generateVerificationCode() {
 		return String.format("%06d", new Random().nextInt(999999)); // Generate a 6-digit code
@@ -296,9 +299,20 @@ public class UserService {
 		return Jwts.builder().setSubject(email).claim("ip", ip).claim("userAgent", userAgent)
 				.signWith(Keys.hmacShaKeyFor(SECRET), SignatureAlgorithm.HS256).compact();
 	}
+	
+	public String tokenBuilderAdmin(String email, String ip, String userAgent) {
+		return Jwts.builder().setSubject(email).claim("ip", ip).claim("userAgent", userAgent)
+				.signWith(Keys.hmacShaKeyFor(SECRET_ADMIN), SignatureAlgorithm.HS256).compact();
+	}
 
 	public Boolean checkpassword(String email, String password) {
 		Boolean flag=userRepository.checkPassword(email, password);
+		if(flag)return true;
+		else throw new IllegalArgumentException("Invalid email or password");
+	}
+	
+	public Boolean checkpasswordAdmin(String email, String password) {
+		Boolean flag=userRepository.checkPasswordAdmin(email, password);
 		if(flag)return true;
 		else throw new IllegalArgumentException("Invalid email or password");
 	}
@@ -321,6 +335,25 @@ public class UserService {
 			return null;
 		}
 	}
+	
+	public String getEmailFromTokenAdmin(String jwt, String ip, String userAgent) {
+		if (jwt == null)
+			return null;
+		try {
+			Claims claims = Jwts.parserBuilder().setSigningKey(Keys.hmacShaKeyFor(SECRET_ADMIN)).build().parseClaimsJws(jwt)
+					.getBody();
+
+			String ipClaim = (String) claims.get("ip");
+			String userAgentClaim = (String) claims.get("userAgent");
+			if (ip != null && ip.equals(ipClaim) && userAgent != null && userAgent.equals(userAgentClaim)
+					&& userRepository.doesEmailExistAdmin(claims.getSubject())) {
+				return claims.getSubject();
+			}
+			return null;
+		} catch (Exception e) {
+			return null;
+		}
+	}
 
 	public Boolean checkTokenValidity(String jwt, String ip, String userAgent) {
 		if (jwt == null)
@@ -333,6 +366,25 @@ public class UserService {
 			String userAgentClaim = (String) claims.get("userAgent");
 			if (ip != null && ip.equals(ipClaim) && userAgent != null && userAgent.equals(userAgentClaim)
 					&& userRepository.doesEmailExist(claims.getSubject())) {
+				return true;
+			}
+			return false;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+	
+	public Boolean checkTokenValidityAdmin(String jwt, String ip, String userAgent) {
+		if (jwt == null)
+			return false;
+		try {
+			Claims claims = Jwts.parserBuilder().setSigningKey(Keys.hmacShaKeyFor(SECRET_ADMIN)).build().parseClaimsJws(jwt)
+					.getBody();
+
+			String ipClaim = (String) claims.get("ip");
+			String userAgentClaim = (String) claims.get("userAgent");
+			if (ip != null && ip.equals(ipClaim) && userAgent != null && userAgent.equals(userAgentClaim)
+					&& userRepository.doesEmailExistAdmin(claims.getSubject())) {
 				return true;
 			}
 			return false;
@@ -441,6 +493,9 @@ public class UserService {
 				if (password.equals(currentPassword)) {
 					throw new IllegalArgumentException("New password must be different from the current password.");
 				}
+				if(checkpasswordAdmin(claims.getSubject(), currentPassword)) {
+					throw new IllegalArgumentException("It is not possible to change the admin password from this site!");
+				}
 				if (userRepository.doesEmailExistWithPassword(claims.getSubject())) {
 					userRepository.updatePassword(claims.getSubject(), password);
 					return claims.getSubject();
@@ -456,6 +511,46 @@ public class UserService {
 			throw new IllegalArgumentException(e.getMessage());
 		}
 	}
+	
+	public String ChangeAdminPassword(String jwt,String currentPassword, String password, String confirmPassword, String ip, String userAgent) {
+		if (jwt == null)
+			throw new IllegalArgumentException("Something went wrong! please try again later.");
+		try {
+			Claims claims = Jwts.parserBuilder().setSigningKey(Keys.hmacShaKeyFor(SECRET)).build().parseClaimsJws(jwt)
+					.getBody();
+			String ipClaim = (String) claims.get("ip");
+			String userAgentClaim = (String) claims.get("userAgent");
+
+			if (ip != null && ip.equals(ipClaim) && userAgent != null && userAgent.equals(userAgentClaim)) {
+				if(!userRepository.checkPassword(claims.getSubject(), currentPassword)) {
+					throw new IllegalArgumentException("Wrong current password!");
+				}
+				if (password.length() < 4) {
+					throw new IllegalArgumentException("Password must be at least 4 characters!");
+				}
+				if (!password.equals(confirmPassword)) {
+					throw new IllegalArgumentException("Password and confirm password do not match!");
+				}
+				if (password.equals(currentPassword)) {
+					throw new IllegalArgumentException("New password must be different from the current password.");
+				}
+				if (userRepository.doesEmailExistWithPassword(claims.getSubject())) {
+					userRepository.updatePassword(claims.getSubject(), password);
+					userRepository.updateAdminPassword(claims.getSubject(), password);
+					return claims.getSubject();
+				} else {
+					throw new IllegalArgumentException("Something went wrong!");
+				}
+			} else {
+				throw new IllegalArgumentException("Something went wrong! please try again later.");
+			}
+
+		} catch (Exception e) {
+//			e.printStackTrace();
+			throw new IllegalArgumentException(e.getMessage());
+		}
+	}
+
 
 
 }

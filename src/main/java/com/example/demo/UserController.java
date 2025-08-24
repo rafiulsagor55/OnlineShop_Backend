@@ -147,6 +147,50 @@ public class UserController {
 		}
 		return ResponseEntity.ok("Logged in successfully");
 	}
+	
+//	@PostMapping("/admin-login")
+//	public ResponseEntity<?> adminLogin(@RequestParam String email, @RequestParam String password,
+//			HttpServletRequest request, HttpServletResponse response) {
+//		String userAgent = request.getHeader("User-Agent");
+//		String ip = request.getHeader("X-Forwarded-For");
+//		if (ip == null)
+//			ip = request.getRemoteAddr();
+//		if (userService.checkpasswordAdmin(email, password) && userService.checkpassword(email, password)) {
+//			System.out.println(userService.tokenBuilder(email, ip, userAgent));
+//			Cookie cookie = new Cookie("admin_token", userService.tokenBuilderAdmin(email, ip, userAgent));
+//			cookie.setHttpOnly(true);
+//			cookie.setSecure(false);
+//			cookie.setPath("/");
+//			cookie.setMaxAge(7 * 24 * 60 * 60);
+//			response.addCookie(cookie);
+//		}
+//		return ResponseEntity.ok("Logged in successfully");
+//	}
+	
+	@PostMapping("/admin-login")
+	public ResponseEntity<?> adminLogin(@RequestParam String email, @RequestParam String password,
+			HttpServletRequest request, HttpServletResponse response) {
+		String userAgent = request.getHeader("User-Agent");
+		String ip = request.getHeader("X-Forwarded-For");
+		if (ip == null)
+			ip = request.getRemoteAddr();
+		if (userService.checkpasswordAdmin(email, password) && userService.checkpassword(email, password)) {
+			System.out.println(userService.tokenBuilder(email, ip, userAgent));
+			Cookie cookie = new Cookie("admin_token", userService.tokenBuilderAdmin(email, ip, userAgent));
+			cookie.setHttpOnly(true);
+			cookie.setSecure(false);
+			cookie.setPath("/");
+			cookie.setMaxAge(7 * 24 * 60 * 60);
+			response.addCookie(cookie);
+			Cookie cookie1 = new Cookie("token", userService.tokenBuilder(email, ip, userAgent));
+			cookie1.setHttpOnly(true);
+			cookie1.setSecure(false);
+			cookie1.setPath("/");
+			cookie1.setMaxAge(7 * 24 * 60 * 60);
+			response.addCookie(cookie1);
+		}
+		return ResponseEntity.ok("Logged in successfully");
+	}
 
 	@PostMapping("/logout")
 	public ResponseEntity<?> logout(@CookieValue(name = "token", required = false) String jwt,
@@ -166,6 +210,33 @@ public class UserController {
 		}
 		
 		return ResponseEntity.ok("Logged out failed");
+	}
+	
+	@PostMapping("/admin-logout")
+	public ResponseEntity<?> adminLogout(@CookieValue(name = "token", required = false) String jwt,
+			@CookieValue(name = "admin_token", required = false) String jwt1,
+			HttpServletRequest request, HttpServletResponse response) {
+		String userAgent = request.getHeader("User-Agent");
+		String ip = request.getHeader("X-Forwarded-For");
+		if (ip == null)
+			ip = request.getRemoteAddr();
+		if(userService.checkTokenValidity(jwt, ip, userAgent) && userService.checkTokenValidityAdmin(jwt1, ip, userAgent)) {
+			Cookie cookie = new Cookie("token", null);
+			cookie.setHttpOnly(true);
+			cookie.setSecure(false);
+			cookie.setPath("/");
+			cookie.setMaxAge(0);
+			response.addCookie(cookie);
+			Cookie cookie1 = new Cookie("admin_token", null);
+			cookie1.setHttpOnly(true);
+			cookie1.setSecure(false);
+			cookie1.setPath("/");
+			cookie1.setMaxAge(0);
+			response.addCookie(cookie1);
+			return ResponseEntity.ok("Logged out successfully");
+		}
+		
+		return ResponseEntity.badRequest().body("Logged out failed!");
 	}
 	
 	@PostMapping("/checkToken")
@@ -195,6 +266,24 @@ public class UserController {
 	    return ResponseEntity.ok("Unreachable");
 	}
 	
+	@GetMapping("/admin-validity")
+	public ResponseEntity<?> adminDetails(@CookieValue(name = "token", required = false) String jwt,
+			@CookieValue(name = "admin_token", required = false) String jwt1,
+	        HttpServletRequest request, HttpServletResponse response) {
+	    String userAgent = request.getHeader("User-Agent");
+	    String ip = request.getHeader("X-Forwarded-For");
+	    if (ip == null)
+	        ip = request.getRemoteAddr();
+   
+	    if(userService.checkTokenValidity(jwt, ip, userAgent) && userService.checkTokenValidityAdmin(jwt1, ip, userAgent)) {
+	    	return ResponseEntity.ok("Token is valid.");
+	    }	   
+	    else {
+	    	return ResponseEntity.badRequest().body("Admin is not valid!");
+	    }
+	   
+	}
+	
 	@PostMapping("/edit-profile")
 	public ResponseEntity<?> UpdateUserDetailss(@RequestParam String name, @RequestParam String imageData,
 			@CookieValue(name = "token", required = false) String jwt, HttpServletRequest request) {
@@ -220,6 +309,25 @@ public class UserController {
 			ip = request.getRemoteAddr();
 		userService.ChangePassword(jwt, currentPassword, newPassword,confirmPassword, ip, userAgent);
 		return ResponseEntity.ok("Your password has been update successfully.");
+	}
+	
+	@PostMapping("/change-admin-password")
+	public ResponseEntity<?> changeAdminPassword(@RequestParam String currentPassword,@RequestParam String newPassword, @RequestParam String confirmPassword,
+			@CookieValue(name = "token", required = false) String jwt, HttpServletRequest request,
+			@CookieValue(name = "admin_token", required = false) String jwt1,
+			HttpServletResponse response) {
+		 String userAgent = request.getHeader("User-Agent");
+		    String ip = request.getHeader("X-Forwarded-For");
+		    if (ip == null)
+		        ip = request.getRemoteAddr();
+	   
+		    if(userService.checkTokenValidityAdmin(jwt1, ip, userAgent)) {
+		    	userService.ChangeAdminPassword(jwt, currentPassword, newPassword,confirmPassword, ip, userAgent);
+				return ResponseEntity.ok("Your password has been update successfully.");
+		    }	   
+		    else {
+		    	return ResponseEntity.badRequest().body("Admin is not valid!");
+		    }
 	}
 	
 	

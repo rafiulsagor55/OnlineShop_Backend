@@ -101,13 +101,22 @@ public class OrderRepository {
     public List<Order> getOrdersByEmail(String email) {
         String sql = "SELECT UUID,serialId,date, status, customer, email, contact, address, " +
                      "deliveryMethod, paymentMethod, payment, processedDate, " +
-                     "shippedDate, deliveredDate, readyDate, pickedDate " +
+                     "shippedDate, deliveredDate, readyDate, pickedDate, cancelledDate " +
                      "FROM orders WHERE email = :email";
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("email", email);
 
         return jdbcTemplate.query(sql, params, new BeanPropertyRowMapper<>(Order.class));
+    }
+    
+    public List<Order> getOrders() {
+        String sql = "SELECT UUID,serialId,date, status, customer, email, contact, address, " +
+                     "deliveryMethod, paymentMethod, payment, processedDate, " +
+                     "shippedDate, deliveredDate, readyDate, pickedDate, cancelledDate " +
+                     "FROM orders";
+
+        return jdbcTemplate.query(sql, new BeanPropertyRowMapper<>(Order.class));
     }
 
     public List<Item> getOrderItemsByEmail(String email) {
@@ -118,6 +127,12 @@ public class OrderRepository {
                 .addValue("email", email);
 
         return jdbcTemplate.query(sql, params, new BeanPropertyRowMapper<>(Item.class));
+    }
+    
+    public List<Item> getOrderItems() {
+        String sql = "SELECT item_id,productId, color, size, quantity, order_UUID, price, name " +
+                     "FROM order_items";
+        return jdbcTemplate.query(sql, new BeanPropertyRowMapper<>(Item.class));
     }
     
     public Product getProductInfo(String productId) {

@@ -24,7 +24,7 @@ public class FilterController {
     @PostMapping("/save-filters")
     public ResponseEntity<String> saveFilters(
             @RequestBody Map<String, List<String>> filters,
-            @CookieValue(name = "token", required = false) String jwt,
+            @CookieValue(name = "admin_token", required = false) String jwt,
             HttpServletRequest request) {
         try {
             String userAgent = request.getHeader("User-Agent");
@@ -34,7 +34,7 @@ public class FilterController {
             }
             System.out.println("IP: "+ip);
 //            System.out.println("Received filters payload: " + filters); // Debug payload
-            if (!userService.checkTokenValidity(jwt, ip, userAgent)) {
+            if (!userService.checkTokenValidityAdmin(jwt, ip, userAgent)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body("Your session has expired or the token is invalid. Please log in again to continue.");
             }

@@ -45,7 +45,7 @@ public class OrderController {
 	
 	@PostMapping("/update-order")
 	public ResponseEntity<?> updateOrder(@RequestBody updateOrder updateOrder, 
-	                                    @CookieValue(name = "token", required = false) String jwt, 
+	                                    @CookieValue(name = "admin_token", required = false) String jwt, 
 	                                    HttpServletRequest request) {
 	    try {
 	        String userAgent = request.getHeader("User-Agent");
@@ -53,7 +53,7 @@ public class OrderController {
 	        if (ip == null) {
 	            ip = request.getRemoteAddr();
 	        }
-	        if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+	        if (userService.checkTokenValidityAdmin(jwt, ip, userAgent)) {
 	            orderService.updateOrder(updateOrder);
 	            return ResponseEntity.ok("Order updated successfully.");
 	        } else {
@@ -76,6 +76,25 @@ public class OrderController {
 				ip = request.getRemoteAddr();
 			if(userService.checkTokenValidity(jwt, ip, userAgent)) {
 				return ResponseEntity.ok(orderService.getOrdersWithItemsAndProductDetailsByEmail((userService.getEmailFromToken(jwt, ip, userAgent))));
+			}
+			else {
+				throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again to continue.");
+			}	
+		} catch (Exception e) {
+			throw new IllegalArgumentException(e.getMessage());
+		}			
+	}
+	
+	@GetMapping("/get-all-order-item-admin")
+	public ResponseEntity<?>GetorderItemsAdmin(@CookieValue(name = "admin_token", required = false) String jwt, HttpServletRequest request){
+		try {
+			String userAgent = request.getHeader("User-Agent");
+			String ip = request.getHeader("X-Forwarded-For");
+			System.out.println(ip);
+			if (ip == null)
+				ip = request.getRemoteAddr();
+			if(userService.checkTokenValidityAdmin(jwt, ip, userAgent)) {
+				return ResponseEntity.ok(orderService.getOrdersWithItemsAndProductDetails());
 			}
 			else {
 				throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again to continue.");

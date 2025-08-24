@@ -23,14 +23,14 @@ public class ProductController {
     }
 
     @PostMapping("/add-product")
-    public  ResponseEntity<?> saveProduct(@RequestBody Product product,@CookieValue(name = "token", required = false) String jwt, HttpServletRequest request) {
+    public  ResponseEntity<?> saveProduct(@RequestBody Product product,@CookieValue(name = "admin_token", required = false) String jwt, HttpServletRequest request) {
         try {
 			String userAgent = request.getHeader("User-Agent");
 			String ip = request.getHeader("X-Forwarded-For");
 			System.out.println(ip);
 			if (ip == null)
 				ip = request.getRemoteAddr();
-			if(userService.checkTokenValidity(jwt, ip, userAgent)) {
+			if(userService.checkTokenValidityAdmin(jwt, ip, userAgent)) {
 				productService.saveProduct(product);
 				return ResponseEntity.ok("Product added successfully!");
 			}
@@ -113,14 +113,14 @@ public class ProductController {
     }
     
     @PostMapping("/save-edited-product")
-    public ResponseEntity<?> saveEditedProduct(@RequestBody Product product,@CookieValue(name = "token", required = false) String jwt, HttpServletRequest request) {
+    public ResponseEntity<?> saveEditedProduct(@RequestBody Product product,@CookieValue(name = "admin_token", required = false) String jwt, HttpServletRequest request) {
     	try {
             String userAgent = request.getHeader("User-Agent");
 			String ip = request.getHeader("X-Forwarded-For");
 			System.out.println(ip);
 			if (ip == null)
 				ip = request.getRemoteAddr();
-			if(userService.checkTokenValidity(jwt, ip, userAgent)) {
+			if(userService.checkTokenValidityAdmin(jwt, ip, userAgent)) {
 				productService.DeleteProductById(product.getId());
 	            productService.saveProduct(product);
 				return ResponseEntity.ok("Edited product saved successfully!");
@@ -134,14 +134,14 @@ public class ProductController {
     }
     
     @DeleteMapping("/delete/{selectedProductId}")
-	public ResponseEntity<?>DeleteProduct(@PathVariable String selectedProductId,@CookieValue(name = "token", required = false) String jwt, HttpServletRequest request){
+	public ResponseEntity<?>DeleteProduct(@PathVariable String selectedProductId,@CookieValue(name = "admin_token", required = false) String jwt, HttpServletRequest request){
 		try {
 			String userAgent = request.getHeader("User-Agent");
 			String ip = request.getHeader("X-Forwarded-For");
 			System.out.println(ip);
 			if (ip == null)
 				ip = request.getRemoteAddr();
-			if(userService.checkTokenValidity(jwt, ip, userAgent)) {
+			if(userService.checkTokenValidityAdmin(jwt, ip, userAgent)) {
 				productService.DeleteProductById(selectedProductId);
 				return ResponseEntity.ok("Product "+selectedProductId+" deleted successfully.");
 			}
