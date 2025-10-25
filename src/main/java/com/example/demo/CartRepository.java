@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -62,5 +63,38 @@ public class CartRepository {
         JdbcTemplate.update(sql, params);
 		
 	}
+    
+    public void updateCartItemCount(String email, int count) {
+        String sql = "INSERT INTO newItemsCounter (email, notifications, cartItems) " +
+                     "VALUES (:email, 0, :cartItems) " +
+                     "ON DUPLICATE KEY UPDATE cartItems = :cartItems";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("email", email)
+                .addValue("cartItems", count);
+
+        JdbcTemplate.update(sql, params);
+    }
+
+    public int getCartItemCount(String email) {
+        String sql = "SELECT cartItems FROM newItemsCounter WHERE email = :email";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("email", email);
+
+        try {
+            Integer count = JdbcTemplate.queryForObject(sql, params, Integer.class);
+            return count != null ? count : 0;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    public boolean isEmailValid(String email) {
+        String sql = "SELECT COUNT(*) FROM users WHERE email = :email";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("email", email);
+        Integer count = JdbcTemplate.queryForObject(sql, params, Integer.class);
+        return count != null && count > 0;
+    }
 
 }

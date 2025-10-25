@@ -30,6 +30,19 @@ public class ProductService {
 		}
     }
     
+    public void updateProduct(Product product) {
+        try {
+        	if(productRepository.doesProductExist(product.getId())) {
+        		productRepository.updateProduct(product);
+        	}
+        	else {
+        		throw new IllegalArgumentException("No product found with id: "+product.getId());
+        	}
+		} catch (Exception e) {
+			throw new IllegalArgumentException(e.getMessage()); 
+		}
+    }
+    
     public List<ProductDTO> getAllProducts() {
     	try {
 			return productRepository.getAllProducts();

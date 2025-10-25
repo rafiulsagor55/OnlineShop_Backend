@@ -41,7 +41,7 @@ public class OrderService {
 	        
 	        // Setting items in the order
 	        order.setItems(orderItems);
-	        order.setId("ORD-0" + order.getSerialId());
+	        order.setId("ORD-" + order.getSerialId());
 	        
 	        // Calculate total price for the order
 	        double total = 0.0;
@@ -88,5 +88,37 @@ public class OrderService {
 	    }
 	    orderRepository.updateOrder(updateOrder);
 	}
+	
+	public String getEmailBySerialId(Long serialId) {
+		return orderRepository.getEmailBySerialId(serialId);
+	}
+	
+	public Long getSerialIdbyUUID(String UUID) {
+		return orderRepository.getSerialIdbyUUID(UUID);
+	}
+	
+	public Order getOrdersWithItemsAndProductDetailsByEmailAndId(String email, Long id) {
+	    // 1. নির্দিষ্ট Email + SerialId দিয়ে Order আনুন
+	    Order order = orderRepository.getOrderByEmailAndId(email, id);
+	    if (order == null) {
+	        throw new IllegalArgumentException("Order not found for id: " + id);
+	    }
+
+	    // 2. ঐ Order এর Items আনুন
+	    List<Item> items = orderRepository.getOrderItemsByOrderUUID(order.getUUID());
+
+	    // 3. Items বসিয়ে দিন + Total হিসাব করুন
+	    order.setItems(items);
+	    order.setId("ORD-" + order.getSerialId());
+
+	    double total = 0.0;
+	    for (Item item : items) {
+	        total += (item.getPrice()) * item.getQuantity();
+	    }
+	    order.setTotal(total);
+
+	    return order;
+	}
+
 
 }

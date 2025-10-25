@@ -19,6 +19,8 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.mail.internet.MimeMessage;
+import java.util.regex.Pattern;
+
 
 @Service
 public class UserService {
@@ -305,10 +307,28 @@ public class UserService {
 				.signWith(Keys.hmacShaKeyFor(SECRET_ADMIN), SignatureAlgorithm.HS256).compact();
 	}
 
+//	public Boolean checkpassword(String email, String password) {
+//		Boolean flag=userRepository.checkPassword(email, password);
+//		if(flag)return true;
+//		else throw new IllegalArgumentException("Invalid email or password");
+//	}
+	
 	public Boolean checkpassword(String email, String password) {
-		Boolean flag=userRepository.checkPassword(email, password);
-		if(flag)return true;
-		else throw new IllegalArgumentException("Invalid email or password");
+		
+	    String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
+	    Pattern pattern = Pattern.compile(emailRegex);
+
+	    if (email == null || !pattern.matcher(email).matches()) {
+	        throw new IllegalArgumentException("Invalid email format");
+	    }
+
+	    Boolean flag = userRepository.checkPassword(email, password);
+
+	    if (Boolean.TRUE.equals(flag)) {
+	        return true;
+	    } else {
+	        throw new IllegalArgumentException("Invalid email or password");
+	    }
 	}
 	
 	public Boolean checkpasswordAdmin(String email, String password) {
@@ -551,6 +571,9 @@ public class UserService {
 		}
 	}
 
+	public String getWebSocketUUIDByEmail(String email) {
+		return userRepository.getWebSocketUUIDByEmail(email);
+	}
 
 
 }

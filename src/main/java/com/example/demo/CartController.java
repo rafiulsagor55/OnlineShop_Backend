@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -83,5 +84,50 @@ public class CartController {
 			throw new IllegalArgumentException(e.getMessage());
 		}			
 	}
+	
+	@PostMapping("/api/cart/cartCount")
+    public ResponseEntity<?> updateCartItemCount(
+            @RequestParam int count,
+            @CookieValue(name = "token", required = false) String jwt,
+            HttpServletRequest request) {
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null) {
+                ip = request.getRemoteAddr();
+            }
+            if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+                String email = userService.getEmailFromToken(jwt, ip, userAgent);
+                cartService.updateCartItemCount(email, count);
+                return ResponseEntity.ok("Cart item count updated successfully");
+            } else {
+                throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again to continue.");
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/api/cart/count")
+    public ResponseEntity<?> getCartItemCount(
+            @CookieValue(name = "token", required = false) String jwt,
+            HttpServletRequest request) {
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null) {
+                ip = request.getRemoteAddr();
+            }
+            if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+                String email = userService.getEmailFromToken(jwt, ip, userAgent);
+                int count = cartService.getCartItemCount(email);
+                return ResponseEntity.ok(count);
+            } else {
+                throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again to continue.");
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 	
 }

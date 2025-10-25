@@ -2,6 +2,7 @@ package com.example.demo;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -122,6 +123,7 @@ public class UserRepository {
 		params.addValue("password", password);
 
 		jdbcTemplate.update(INSERT_CODE_SQL, params);
+		insertWebsocketCode(email);
 	}
 
 	public void insertUserDetails(String email, String name, byte[] image_data, String content_type) {
@@ -142,7 +144,27 @@ public class UserRepository {
 		params.addValue("name", name);
 		params.addValue("image_path", image_path);
 		jdbcTemplate.update(INSERT_CODE_SQL, params);
+		insertWebsocketCode(email);
 	}
+	
+	public void insertWebsocketCode(String email) {
+		String INSERT_CODE_SQL = "INSERT INTO WebSocketCode (email, code) " + "VALUES (:email, :code)";
+		MapSqlParameterSource params = new MapSqlParameterSource();
+		params.addValue("email", email);
+		params.addValue("code", UUID.randomUUID().toString());
+		jdbcTemplate.update(INSERT_CODE_SQL, params);
+	}
+	
+	public void updateWebsocketCode(String email) {
+	    String UPDATE_SQL = "UPDATE WebSocketCode SET code = :code WHERE email = :email";
+
+	    MapSqlParameterSource params = new MapSqlParameterSource();
+	    params.addValue("email", email);
+	    params.addValue("code", UUID.randomUUID().toString());
+
+	    jdbcTemplate.update(UPDATE_SQL, params);	   
+	}
+
 
 	public void insertUserDetailsFromGoogleLoginWithoutImage(String email, String name) {
 		String INSERT_CODE_SQL = "INSERT INTO users (email, name) " + "VALUES (:email, :name)";
@@ -150,6 +172,7 @@ public class UserRepository {
 		params.addValue("email", email);
 		params.addValue("name", name);
 		jdbcTemplate.update(INSERT_CODE_SQL, params);
+		insertWebsocketCode(email);
 	}
 
 	public void updateUserDetailsFromGoogleLogin(String email, String name, String image_path) {
@@ -180,6 +203,7 @@ public class UserRepository {
 		params.addValue("password", password);
 
 		jdbcTemplate.update(UPDATE_CODE_SQL, params);
+		updateWebsocketCode(email);
 	}
 	
 	public void updateAdminPassword(String email, String password) {
@@ -189,6 +213,7 @@ public class UserRepository {
 		params.addValue("password", password);
 
 		jdbcTemplate.update(UPDATE_CODE_SQL, params);
+		updateWebsocketCode(email);
 	}
 
 	public Users getUserDetailsByEmail(String email) {
@@ -237,6 +262,29 @@ public class UserRepository {
 
 	    return user;
 	}
+	
+	public String getWebSocketUUIDByEmail(String email) {
+	    String sql = "SELECT code FROM WebSocketCode WHERE email = :email";
+
+	    MapSqlParameterSource params = new MapSqlParameterSource()
+	            .addValue("email", email);
+
+	    try {
+	        return jdbcTemplate.queryForObject(sql, params, String.class);
+	    } catch (Exception e) {
+	        String newCode = UUID.randomUUID().toString();
+	        String insertSql = "INSERT INTO WebSocketCode (email, code) VALUES (:email, :code)";
+
+	        MapSqlParameterSource insertParams = new MapSqlParameterSource()
+	                .addValue("email", email)
+	                .addValue("code", newCode);
+
+	        jdbcTemplate.update(insertSql, insertParams);
+
+	        return newCode;
+	    }
+	}
+
 
 
 }

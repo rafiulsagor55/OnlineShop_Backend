@@ -1,7 +1,9 @@
 package com.example.demo;
 
+import java.sql.Timestamp;
 import java.util.Base64;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +27,8 @@ public class UserController {
 
 	@Autowired
 	private UserService userService;
+	@Autowired
+	private NotificationService notificationService;
 
 //	private final String CLIENT_ID = "421406248780-c6pukobh1dr5blgsa7u4ee7l3luml5iu.apps.googleusercontent.com";
 	private final byte[] SECRET = Base64.getEncoder()
@@ -139,7 +143,7 @@ public class UserController {
 		if (userService.checkpassword(email, password)) {
 			System.out.println(userService.tokenBuilder(email, ip, userAgent));
 			Cookie cookie = new Cookie("token", userService.tokenBuilder(email, ip, userAgent));
-			cookie.setHttpOnly(true);
+//			cookie.setHttpOnly(true);
 			cookie.setSecure(false);
 			cookie.setPath("/");
 			cookie.setMaxAge(7 * 24 * 60 * 60);
@@ -323,12 +327,39 @@ public class UserController {
 	   
 		    if(userService.checkTokenValidityAdmin(jwt1, ip, userAgent)) {
 		    	userService.ChangeAdminPassword(jwt, currentPassword, newPassword,confirmPassword, ip, userAgent);
+		    	notificationService.createActivityLog(ActivityLog.builder()
+				        .id(UUID.randomUUID().toString())
+				        .title(String.format("Password Updated"))
+				        .message(String.format("Your password Updated successfully."))
+				        .timestamp(new Timestamp(System.currentTimeMillis()))
+				        .type("password-update")
+				        .build());
 				return ResponseEntity.ok("Your password has been update successfully.");
 		    }	   
 		    else {
 		    	return ResponseEntity.badRequest().body("Admin is not valid!");
 		    }
 	}
+	
+	@GetMapping("/api/user/SocketDestination")
+    public ResponseEntity<String> getEmail(
+            @CookieValue(name = "token", required = false) String jwt,
+            HttpServletRequest request) {
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null) {
+                ip = request.getRemoteAddr();
+            }
+            if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+                return ResponseEntity.ok(userService.getWebSocketUUIDByEmail(userService.getEmailFromToken(jwt, ip, userAgent)));
+            } else {
+                throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again to continue.");
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 	
 	
 }

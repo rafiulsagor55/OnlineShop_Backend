@@ -1,0 +1,1605 @@
+```java
+// DTOs
+package com.example.demo;
+
+import java.sql.Timestamp;
+import java.util.List;
+import java.util.UUID;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+class User {
+    private Long id;
+    private String name;
+    private String email;
+    private String avatar;
+    private String status;
+    private String lastSeen;
+    private String about;
+    private String phone;
+}
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+class ChatSummary {
+    private Long id;
+    private String name;
+    private String email;
+    private String avatar;
+    private String status;
+    private String lastSeen;
+    private String about;
+    private String phone;
+    private Message lastMessage;
+    private Integer unreadCount;
+}
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+class Message {
+    private String id;
+    private String text;
+    private String sender;
+    private String receiver;
+    private Timestamp timestamp;
+    private String status;
+    private Boolean isEdited;
+    private ReplyTo replyTo;
+    private FileAttachment file;
+    private List<Reaction> reactions;
+    private Boolean isDeleted;
+    private String deletedBy;
+}
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+class ReplyTo {
+    private String id;
+    private String text;
+    private String sender;
+}
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+class FileAttachment {
+    private String name;
+    private String type;
+    private Long size;
+    private String url;
+}
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+class Reaction {
+    private String emoji;
+    private String by;
+}
+
+// Repository
+package com.example.demo;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class ChatRepository {
+
+    @Autowired
+    private NamedParameterJdbcTemplate jdbcTemplate;
+
+    public List<ChatSummary> getChatSummaries(String userEmail) {
+        String sql = "SELECT u.id, u.name, u.email, u.avatar, u.status, u.last_seen as lastSeen, u.about, u.phone, " +
+                     "(SELECT COUNT(*) FROM messages m WHERE m.receiver = :userEmail AND m.sender = u.email AND m.status = 'unread') as unreadCount, " +
+                     "(SELECT JSON_OBJECT('id', m2.id, 'text', m2.text, 'sender', m2.sender, 'timestamp', m2.timestamp, 'status', m2.status) " +
+                     "FROM messages m2 WHERE (m2.sender = u.email AND m2.receiver = :userEmail OR m2.sender = :userEmail AND m2.receiver = u.email) " +
+                     "ORDER BY m2.timestamp DESC LIMIT 1) as lastMessage " +
+                     "FROM users u WHERE u.email != :userEmail";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("userEmail", userEmail);
+
+        return jdbcTemplate.query(sql, params, (rs, rowNum) -> {
+            ChatSummary summary = new BeanPropertyRowMapper<>(ChatSummary.class).mapRow(rs, rowNum);
+            String lastMessageJson = rs.getString("lastMessage");
+            if (lastMessageJson != null) {
+                // Assuming JSON parsing logic for lastMessage (simplified)
+                // In a real app, use ObjectMapper to parse JSON
+                summary.setLastMessage(new BeanPropertyRowMapper<>(Message.class).mapRow(rs, rowNum));
+            }
+            return summary;
+        });
+    }
+
+    public List<Message> getMessages(String userEmail, String otherUserEmail) {
+        String sql = "SELECT m.id, m.text, m.sender, m.receiver, m.timestamp, m.status, m.is_edited as isEdited, " +
+                     "m.is_deleted as isDeleted, m.deleted_by as deletedBy, " +
+                     "JSON_OBJECT('id', m.reply_to_id, 'text', m2.text, 'sender', m2.sender) as replyTo, " +
+                     "JSON_OBJECT('name', m.file_name, 'type', m.file_type, 'size', m.file_size, 'url', m.file_url) as file, " +
+                     "(SELECT JSON_ARRAYAGG(JSON_OBJECT('emoji', r.emoji, 'by', r.by)) FROM reactions r WHERE r.message_id = m.id) as reactions " +
+                     "FROM messages m LEFT JOIN messages m2 ON m.reply_to_id = m2.id " +
+                     "WHERE (m.sender = :userEmail AND m.receiver = :otherUserEmail) OR (m.sender = :otherUserEmail AND m.receiver = :userEmail) " +
+                     "ORDER BY m.timestamp ASC";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("userEmail", userEmail)
+                .addValue("otherUserEmail", otherUserEmail);
+
+        return jdbcTemplate.query(sql, params, (rs, rowNum) -> {
+            Message message = new BeanPropertyRowMapper<>(Message.class).mapRow(rs, rowNum);
+            String replyToJson = rs.getString("replyTo");
+            String fileJson = rs.getString("file");
+            String reactionsJson = rs.getString("reactions");
+            // Assuming JSON parsing logic for replyTo, file, and reactions
+            // In a real app, use ObjectMapper to parse JSON
+            return message;
+        });
+    }
+
+    public void saveMessage(Message message) {
+        String sql = "INSERT INTO messages (id, text, sender, receiver, timestamp, status, is_edited, reply_to_id, file_name, file_type, file_size, file_url) " +
+                     "VALUES (:id, :text, :sender, :receiver, :timestamp, :status, :isEdited, :replyToId, :fileName, :fileType, :fileSize, :fileUrl)";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", message.getId())
+                .addValue("text", message.getText())
+                .addValue("sender", message.getSender())
+                .addValue("receiver", message.getReceiver())
+                .addValue("timestamp", message.getTimestamp())
+                .addValue("status", message.getStatus())
+                .addValue("isEdited", message.getIsEdited())
+                .addValue("replyToId", message.getReplyTo() != null ? message.getReplyTo().getId() : null)
+                .addValue("fileName", message.getFile() != null ? message.getFile().getName() : null)
+                .addValue("fileType", message.getFile() != null ? message.getFile().getType() : null)
+                .addValue("fileSize", message.getFile() != null ? message.getFile().getSize() : null)
+                .addValue("fileUrl", message.getFile() != null ? message.getFile().getUrl() : null);
+
+        jdbcTemplate.update(sql, params);
+
+        if (message.getReactions() != null) {
+            saveReactions(message.getReactions(), message.getId());
+        }
+    }
+
+    private void saveReactions(List<Reaction> reactions, String messageId) {
+        String sql = "INSERT INTO reactions (message_id, emoji, by) VALUES (:messageId, :emoji, :by)";
+        for (Reaction reaction : reactions) {
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("messageId", messageId)
+                    .addValue("emoji", reaction.getEmoji())
+                    .addValue("by", reaction.getBy());
+            jdbcTemplate.update(sql, params);
+        }
+    }
+
+    public void updateMessage(Message message) {
+        String sql = "UPDATE messages SET text = :text, is_edited = :isEdited, status = :status WHERE id = :id AND sender = :sender";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", message.getId())
+                .addValue("text", message.getText())
+                .addValue("isEdited", message.getIsEdited())
+                .addValue("status", message.getStatus())
+                .addValue("sender", message.getSender());
+
+        int rowsAffected = jdbcTemplate.update(sql, params);
+        if (rowsAffected == 0) {
+            throw new IllegalArgumentException("No message found with id: " + message.getId());
+        }
+    }
+
+    public void deleteMessageForMe(String messageId, String userEmail) {
+        String sql = "DELETE FROM messages WHERE id = :messageId AND (sender = :userEmail OR receiver = :userEmail)";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("messageId", messageId)
+                .addValue("userEmail", userEmail);
+
+        jdbcTemplate.update(sql, params);
+    }
+
+    public void deleteMessageForEveryone(String messageId, String userEmail) {
+        String sql = "UPDATE messages SET text = 'You deleted this message', is_deleted = true, deleted_by = :userEmail, " +
+                     "is_edited = false, reply_to_id = null, file_name = null, file_type = null, file_size = null, file_url = null " +
+                     "WHERE id = :messageId AND sender = :userEmail";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("messageId", messageId)
+                .addValue("userEmail", userEmail);
+
+        int rowsAffected = jdbcTemplate.update(sql, params);
+        if (rowsAffected == 0) {
+            throw new IllegalArgumentException("No message found with id: " + messageId);
+        }
+    }
+
+    public void addReaction(String messageId, Reaction reaction) {
+        String sql = "INSERT INTO reactions (message_id, emoji, by) VALUES (:messageId, :emoji, :by)";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("messageId", messageId)
+                .addValue("emoji", reaction.getEmoji())
+                .addValue("by", reaction.getBy());
+        jdbcTemplate.update(sql, params);
+    }
+
+    public void removeReaction(String messageId, String emoji, String userEmail) {
+        String sql = "DELETE FROM reactions WHERE message_id = :messageId AND emoji = :emoji AND by = :userEmail";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("messageId", messageId)
+                .addValue("emoji", emoji)
+                .addValue("userEmail", userEmail);
+        jdbcTemplate.update(sql, params);
+    }
+
+    public User getUserByEmail(String email) {
+        String sql = "SELECT id, name, email, avatar, status, last_seen as lastSeen, about, phone FROM users WHERE email = :email";
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("email", email);
+        List<User> users = jdbcTemplate.query(sql, params, new BeanPropertyRowMapper<>(User.class));
+        return users.isEmpty() ? null : users.get(0);
+    }
+}
+
+// Service
+package com.example.demo;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class ChatService {
+
+    @Autowired
+    private ChatRepository chatRepository;
+
+    public List<ChatSummary> getChatList(String userEmail) {
+        return chatRepository.getChatSummaries(userEmail).stream()
+                .sorted((a, b) -> {
+                    long timeA = a.getLastMessage() != null ? a.getLastMessage().getTimestamp().getTime() : 0;
+                    long timeB = b.getLastMessage() != null ? b.getLastMessage().getTimestamp().getTime() : 0;
+                    return Long.compare(timeB, timeA);
+                })
+                .collect(Collectors.toList());
+    }
+
+    public List<Message> getMessages(String userEmail, String otherUserEmail) {
+        List<Message> messages = chatRepository.getMessages(userEmail, otherUserEmail);
+        // Mark unread messages as read
+        messages.forEach(msg -> {
+            if (msg.getSender().equals(otherUserEmail) && "unread".equals(msg.getStatus())) {
+                msg.setStatus("read");
+                chatRepository.updateMessage(msg);
+            }
+        });
+        return messages;
+    }
+
+    public void sendMessage(Message message) {
+        chatRepository.saveMessage(message);
+    }
+
+    public void editMessage(Message message) {
+        if (!message.getIsEdited()) {
+            message.setIsEdited(true);
+        }
+        chatRepository.updateMessage(message);
+    }
+
+    public void deleteMessageForMe(String messageId, String userEmail) {
+        chatRepository.deleteMessageForMe(messageId, userEmail);
+    }
+
+    public void deleteMessageForEveryone(String messageId, String userEmail) {
+        chatRepository.deleteMessageForEveryone(messageId, userEmail);
+    }
+
+    public void toggleReaction(String messageId, Reaction reaction) {
+        // Check if user already reacted with this emoji
+        List<Message> messages = chatRepository.getMessages(reaction.getBy(), null);
+        Message message = messages.stream().filter(m -> m.getId().equals(messageId)).findFirst().orElse(null);
+        if (message != null) {
+            boolean hasReaction = message.getReactions().stream()
+                    .anyMatch(r -> r.getEmoji().equals(reaction.getEmoji()) && r.getBy().equals(reaction.getBy()));
+            if (hasReaction) {
+                chatRepository.removeReaction(messageId, reaction.getEmoji(), reaction.getBy());
+            } else {
+                chatRepository.addReaction(messageId, reaction);
+            }
+        }
+    }
+
+    public User getUserDetails(String email) {
+        return chatRepository.getUserByEmail(email);
+    }
+}
+
+// Controller
+package com.example.demo;
+
+import java.sql.Timestamp;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+@RestController
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+public class ChatController {
+
+    @Autowired
+    private ChatService chatService;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
+    @GetMapping("/api/chats")
+    public ResponseEntity<?> getChatList(@CookieValue(name = "token", required = false) String jwt, HttpServletRequest request) {
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null) ip = request.getRemoteAddr();
+            if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+                String userEmail = userService.getEmailFromToken(jwt, ip, userAgent);
+                List<ChatSummary> chats = chatService.getChatList(userEmail);
+                return ResponseEntity.ok(chats);
+            } else {
+                throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again.");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/api/messages/{otherUserEmail}")
+    public ResponseEntity<?> getMessages(@PathVariable String otherUserEmail,
+                                        @CookieValue(name = "token", required = false) String jwt,
+                                        HttpServletRequest request) {
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null) ip = request.getRemoteAddr();
+            if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+                String userEmail = userService.getEmailFromToken(jwt, ip, userAgent);
+                List<Message> messages = chatService.getMessages(userEmail, otherUserEmail);
+                return ResponseEntity.ok(messages);
+            } else {
+                throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again.");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/api/messages")
+    public ResponseEntity<?> sendMessage(@RequestBody Message message,
+                                        @CookieValue(name = "token", required = false) String jwt,
+                                        HttpServletRequest request) {
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null) ip = request.getRemoteAddr();
+            if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+                String userEmail = userService.getEmailFromToken(jwt, ip, userAgent);
+                message.setSender(userEmail);
+                message.setId(UUID.randomUUID().toString());
+                message.setTimestamp(new Timestamp(System.currentTimeMillis()));
+                message.setStatus("unread");
+                chatService.sendMessage(message);
+
+                // Notify recipient via WebSocket
+                messagingTemplate.convertAndSendToUser(
+                        userService.getWebSocketUUIDByEmail(message.getReceiver()),
+                        "/message",
+                        message
+                );
+
+                return ResponseEntity.ok("Message sent successfully.");
+            } else {
+                throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again.");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error sending message: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/api/messages/edit")
+    public ResponseEntity<?> editMessage(@RequestBody Message message,
+                                        @CookieValue(name = "token", required = false) String jwt,
+                                        HttpServletRequest request) {
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null) ip = request.getRemoteAddr();
+            if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+                String userEmail = userService.getEmailFromToken(jwt, ip, userAgent);
+                message.setSender(userEmail);
+                chatService.editMessage(message);
+
+                // Notify recipient via WebSocket
+                messagingTemplate.convertAndSendToUser(
+                        userService.getWebSocketUUIDByEmail(message.getReceiver()),
+                        "/message",
+                        message
+                );
+
+                return ResponseEntity.ok("Message edited successfully.");
+            } else {
+                throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again.");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error editing message: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/api/messages/delete-for-me/{messageId}")
+    public ResponseEntity<?> deleteMessageForMe(@PathVariable String messageId,
+                                               @CookieValue(name = "token", required = false) String jwt,
+                                               HttpServletRequest request) {
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null) ip = request.getRemoteAddr();
+            if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+                String userEmail = userService.getEmailFromToken(jwt, ip, userAgent);
+                chatService.deleteMessageForMe(messageId, userEmail);
+                return ResponseEntity.ok("Message deleted for you.");
+            } else {
+                throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again.");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error deleting message: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/api/messages/delete-for-everyone/{messageId}")
+    public ResponseEntity<?> deleteMessageForEveryone(@PathVariable String messageId,
+                                                     @CookieValue(name = "token", required = false) String jwt,
+                                                     HttpServletRequest request) {
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null) ip = request.getRemoteAddr();
+            if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+                String userEmail = userService.getEmailFromToken(jwt, ip, userAgent);
+                chatService.deleteMessageForEveryone(messageId, userEmail);
+
+                // Notify recipient via WebSocket
+                Message deletedMessage = new Message();
+                deletedMessage.setId(messageId + "_deleted");
+                deletedMessage.setText("You deleted this message");
+                deletedMessage.setTimestamp(new Timestamp(System.currentTimeMillis()));
+                deletedMessage.setIsDeleted(true);
+                deletedMessage.setDeletedBy(userEmail);
+                messagingTemplate.convertAndSendToUser(
+                        userService.getWebSocketUUIDByEmail(userEmail),
+                        "/message",
+                        deletedMessage
+                );
+
+                return ResponseEntity.ok("Message deleted for everyone.");
+            } else {
+                throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again.");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error deleting message: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/api/messages/reaction")
+    public ResponseEntity<?> toggleReaction(@RequestBody Reaction reaction,
+                                           @CookieValue(name = "token", required = false) String jwt,
+                                           HttpServletRequest request) {
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null) ip = request.getRemoteAddr();
+            if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+                String userEmail = userService.getEmailFromToken(jwt, ip, userAgent);
+                reaction.setBy(userEmail);
+                chatService.toggleReaction(reaction.getMessageId(), reaction);
+
+                // Notify recipient via WebSocket
+                messagingTemplate.convertAndSendToUser(
+                        userService.getWebSocketUUIDByEmail(userEmail),
+                        "/reaction",
+                        reaction
+                );
+
+                return ResponseEntity.ok("Reaction toggled successfully.");
+            } else {
+                throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again.");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error toggling reaction: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/api/users/{email}")
+    public ResponseEntity<?> getUserDetails(@PathVariable String email,
+                                           @CookieValue(name = "token", required = false) String jwt,
+                                           HttpServletRequest request) {
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null) ip = request.getRemoteAddr();
+            if (userService.checkTokenValidity(jwt, ip, userAgent)) {
+                User user = chatService.getUserDetails(email);
+                if (user == null) {
+                    throw new IllegalArgumentException("User not found.");
+                }
+                return ResponseEntity.ok(user);
+            } else {
+                throw new IllegalArgumentException("Your session has expired or the token is invalid. Please log in again.");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+}
+
+// WebSocket Configuration (src/main/java/com/example/demo/WebSocketConfig.java)
+package com.example.demo;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
+import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
+import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+
+@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    @Override
+    public void configureMessageBroker(MessageBrokerRegistry config) {
+        config.enableSimpleBroker("/message", "/reaction");
+        config.setApplicationDestinationPrefixes("/app");
+        config.setUserDestinationPrefix("/user");
+    }
+
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/ws").setAllowedOrigins("http://localhost:3000").withSockJS();
+    }
+}
+
+// MySQL Schema (src/main/resources/schema.sql)
+CREATE TABLE users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    avatar VARCHAR(255),
+    status ENUM('online', 'offline') DEFAULT 'offline',
+    last_seen DATETIME,
+    about VARCHAR(255),
+    phone VARCHAR(20)
+);
+
+CREATE TABLE messages (
+    id VARCHAR(36) PRIMARY KEY,
+    text TEXT,
+    sender VARCHAR(255) NOT NULL,
+    receiver VARCHAR(255) NOT NULL,
+    timestamp DATETIME NOT NULL,
+    status ENUM('unread', 'read') DEFAULT 'unread',
+    is_edited BOOLEAN DEFAULT FALSE,
+    reply_to_id VARCHAR(36),
+    file_name VARCHAR(255),
+    file_type VARCHAR(100),
+    file_size BIGINT,
+    file_url VARCHAR(255),
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_by VARCHAR(255),
+    FOREIGN KEY (sender) REFERENCES users(email),
+    FOREIGN KEY (receiver) REFERENCES users(email),
+    FOREIGN KEY (reply_to_id) REFERENCES messages(id)
+);
+
+CREATE TABLE reactions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    message_id VARCHAR(36) NOT NULL,
+    emoji VARCHAR(10) NOT NULL,
+    by VARCHAR(255) NOT NULL,
+    FOREIGN KEY (message_id) REFERENCES messages(id),
+    FOREIGN KEY (by) REFERENCES users(email)
+);
+```
+
+
+
+
+
+
+
+
+
+
+```jsx
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import styles from "./ChatApp.module.css";
+import {
+  FiSearch,
+  FiPaperclip,
+  FiMic,
+  FiMoreVertical,
+  FiEdit,
+  FiTrash2,
+  FiX,
+  FiSun,
+  FiMoon,
+  FiArrowLeft,
+} from "react-icons/fi";
+import { CiCircleRemove } from "react-icons/ci";
+import { IoMdClose } from "react-icons/io";
+import { IoCheckmarkDone, IoSend } from "react-icons/io5";
+import { BsEmojiSmile, BsThreeDotsVertical, BsReply } from "react-icons/bs";
+import EmojiPicker from "emoji-picker-react";
+import SockJS from "sockjs-client";
+import { Stomp } from "@stomp/stompjs";
+
+const ChatApp = () => {
+  const currentUserEmail = "me@example.com"; // This should come from auth context or token
+  const apiBaseUrl = "http://localhost:8080";
+  const wsBaseUrl = "http://localhost:8080/ws";
+
+  // App state
+  const [darkMode, setDarkMode] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState("");
+  const [activeChat, setActiveChat] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [profileUser, setProfileUser] = useState(null);
+  const [attachmentMenu, setAttachmentMenu] = useState(false);
+  const [messageMenu, setMessageMenu] = useState(null);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [showReactionPicker, setShowReactionPicker] = useState(null);
+  const [mobileView, setMobileView] = useState("chats");
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [chatList, setChatList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState(null);
+  const [stompClient, setStompClient] = useState(null);
+
+  // Refs
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const messageMenuRef = useRef(null);
+  const emojiPickerRef = useRef(null);
+
+  // Format helpers
+  const formatTime = useCallback((isoString) => {
+    return new Date(isoString).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }, []);
+
+  const formatDateForGroup = useCallback((isoString) => {
+    const date = new Date(isoString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      ...(date.getFullYear() !== today.getFullYear() && { year: "numeric" }),
+    });
+  }, []);
+
+  // Show notification
+  const showNotification = (message, type = "success") => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+    }
+  }, [inputText]);
+
+  // Initialize WebSocket
+  useEffect(() => {
+    const socket = new SockJS(wsBaseUrl);
+    const client = Stomp.over(socket);
+    client.connect({}, () => {
+      // Subscribe to user-specific message queue
+      client.subscribe(`/user/${currentUserEmail}/message`, (message) => {
+        const newMessage = JSON.parse(message.body);
+        if (activeChat && (newMessage.sender === activeChat.email || newMessage.receiver === activeChat.email)) {
+          setMessages((prev) => [...prev, newMessage]);
+        }
+        // Update chat list lastMessage
+        setChatList((prev) =>
+          prev.map((chat) =>
+            chat.email === newMessage.sender && newMessage.sender !== currentUserEmail
+              ? {
+                  ...chat,
+                  lastMessage: {
+                    id: newMessage.id,
+                    text: newMessage.text.substring(0, 30) + (newMessage.text.length > 30 ? "..." : ""),
+                    sender: newMessage.sender,
+                    timestamp: newMessage.timestamp,
+                    status: newMessage.status,
+                  },
+                  unreadCount: chat.unreadCount + 1,
+                }
+              : chat
+          )
+        );
+      });
+
+      // Subscribe to reactions
+      client.subscribe(`/user/${currentUserEmail}/reaction`, (reaction) => {
+        const newReaction = JSON.parse(reaction.body);
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === newReaction.messageId
+              ? {
+                  ...msg,
+                  reactions: newReaction.action === "add"
+                    ? [...msg.reactions, newReaction]
+                    : msg.reactions.filter((r) => !(r.emoji === newReaction.emoji && r.by === newReaction.by)),
+                }
+              : msg
+          )
+        );
+      });
+    });
+
+    setStompClient(client);
+
+    return () => {
+      if (client) client.disconnect();
+    };
+  }, [currentUserEmail, activeChat]);
+
+  // Fetch chat list
+  useEffect(() => {
+    const fetchChatList = async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/chats`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error);
+        }
+
+        const data = await response.json();
+        setChatList(data);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching chat list:", error);
+        showNotification(error.message, "error");
+        setLoading(false);
+      }
+    };
+    fetchChatList();
+  }, []);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+      if (window.innerWidth > 768 && mobileView !== "chats") {
+        setMobileView("chats");
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [mobileView]);
+
+  const isMobile = () => windowWidth <= 768;
+
+  // Initialize active chat on desktop
+  useEffect(() => {
+    if (chatList.length > 0 && !activeChat && !isMobile() && !loading) {
+      handleChatSelect(chatList[0]);
+    }
+  }, [chatList, activeChat, loading]);
+
+  // Handle selecting a chat
+  const handleChatSelect = async (selectedChat) => {
+    setMessages([]);
+    setActiveChat(selectedChat);
+    setReplyingTo(null);
+    setEditingMessage(null);
+    if (isMobile()) setMobileView("messages");
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/messages/${selectedChat.email}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const fetchedMessages = await response.json();
+      setMessages(fetchedMessages);
+
+      // Update unreadCount to 0 in chat list
+      setChatList((prev) =>
+        prev.map((chat) =>
+          chat.id === selectedChat.id ? { ...chat, unreadCount: 0 } : chat
+        )
+      );
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      showNotification(error.message, "error");
+      setMessages([]);
+    }
+  };
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (messageMenuRef.current && !messageMenuRef.current.contains(event.target)) {
+        setMessageMenu(null);
+        setShowReactionPicker(null);
+      }
+      if (
+        showEmojiPicker &&
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target) &&
+        !event.target.closest(`.${styles.emojiButton}`)
+      ) {
+        setShowEmojiPicker(false);
+      }
+      if (attachmentMenu && !event.target.closest(`.${styles.attachmentMenu}`)) {
+        setAttachmentMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showEmojiPicker, attachmentMenu]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Send or edit message
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    const text = inputText.trim();
+    if (text === "" && !replyingTo && !editingMessage) return;
+
+    try {
+      let url = editingMessage ? `${apiBaseUrl}/api/messages/edit` : `${apiBaseUrl}/api/messages`;
+      const message = {
+        text,
+        receiver: activeChat.email,
+        ...(editingMessage ? { id: editingMessage.id, isEdited: true } : {}),
+        ...(replyingTo ? { replyTo: { id: replyingTo.id, text: replyingTo.text, sender: replyingTo.sender } } : {}),
+      };
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(message),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const result = await response.json();
+      showNotification(result, "success");
+
+      if (!editingMessage) {
+        setMessages((prev) => [...prev, { ...message, id: crypto.randomUUID(), timestamp: new Date().toISOString(), status: "unread", sender: currentUserEmail }]);
+      } else {
+        setMessages((prev) =>
+          prev.map((msg) => (msg.id === editingMessage.id ? { ...msg, text, isEdited: true } : msg))
+        );
+        setEditingMessage(null);
+      }
+
+      setInputText("");
+      setReplyingTo(null);
+      setShowEmojiPicker(false);
+    } catch (error) {
+      console.error("Error sending/editing message:", error);
+      showNotification(error.message, "error");
+    }
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const message = {
+          file: {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            url: reader.result,
+          },
+          receiver: activeChat.email,
+          ...(replyingTo ? { replyTo: { id: replyingTo.id, text: replyingTo.text, sender: replyingTo.sender } } : {}),
+        };
+
+        const response = await fetch(`${apiBaseUrl}/api/messages`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(message),
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error);
+        }
+
+        const result = await response.json();
+        showNotification(result, "success");
+
+        setMessages((prev) => [...prev, { ...message, id: crypto.randomUUID(), timestamp: new Date().toISOString(), status: "unread", sender: currentUserEmail }]);
+        setAttachmentMenu(false);
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        showNotification(error.message, "error");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Toggle reaction
+  const toggleReaction = async (messageId, emoji) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/messages/reaction`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ messageId, emoji, by: currentUserEmail }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const result = await response.json();
+      showNotification(result, "success");
+      setShowReactionPicker(null);
+      setMessageMenu(null);
+    } catch (error) {
+      console.error("Error toggling reaction:", error);
+      showNotification(error.message, "error");
+    }
+  };
+
+  // Remove reaction
+  const removeReaction = async (messageId, emoji) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/messages/reaction`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ messageId, emoji, by: currentUserEmail, action: "remove" }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const result = await response.json();
+      showNotification(result, "success");
+    } catch (error) {
+      console.error("Error removing reaction:", error);
+      showNotification(error.message, "error");
+    }
+  };
+
+  // Delete message for me
+  const deleteForMe = async (messageId) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/messages/delete-for-me/${messageId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const result = await response.json();
+      showNotification(result, "success");
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      setMessageMenu(null);
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      showNotification(error.message, "error");
+    }
+  };
+
+  // Delete message for everyone
+  const deleteForEveryone = async (messageId) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/messages/delete-for-everyone/${messageId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const result = await response.json();
+      showNotification(result, "success");
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId
+            ? { ...msg, text: "You deleted this message", isDeleted: true, deletedBy: currentUserEmail, isEdited: false, replyTo: null, file: null, reactions: [] }
+            : msg
+        )
+      );
+      setMessageMenu(null);
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      showNotification(error.message, "error");
+    }
+  };
+
+  // Start editing a message
+  const startEditing = (message) => {
+    if (message.sender !== currentUserEmail || message.isDeleted) return;
+    setEditingMessage(message);
+    setReplyingTo(null);
+    setInputText(message.text);
+    inputRef.current.focus();
+    setMessageMenu(null);
+  };
+
+  // Cancel reply/edit
+  const cancelReply = () => {
+    setReplyingTo(null);
+    setEditingMessage(null);
+    setInputText("");
+  };
+
+  // Handle emoji click
+  const onEmojiClick = (emojiData) => {
+    setInputText((prev) => prev + emojiData.emoji);
+  };
+
+  // Handle context menu
+  const handleContextMenu = (e, message) => {
+    if (message.isDeleted) return;
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuHeight = 200;
+    const menuWidth = 200;
+    let top = rect.top;
+    let left = rect.right;
+
+    if (top + menuHeight > window.innerHeight) top = window.innerHeight - menuHeight - 10;
+    if (top < 0) top = 10;
+    if (left + menuWidth > window.innerWidth) left = rect.left - menuWidth;
+    if (left < 0) left = 10;
+
+    setMessageMenu(message.id);
+    requestAnimationFrame(() => {
+      if (messageMenuRef.current) {
+        messageMenuRef.current.style.top = `${top}px`;
+        messageMenuRef.current.style.left = `${left}px`;
+      }
+    });
+  };
+
+  // Group messages by date
+  const groupMessagesByDate = (messages) => {
+    if (!messages) return [];
+    return messages.reduce((acc, message) => {
+      const msgDate = new Date(message.timestamp).toISOString().split("T")[0];
+      const dateGroup = acc.find((group) => group.date === msgDate);
+      if (dateGroup) {
+        dateGroup.messages.push(message);
+      } else {
+        acc.push({
+          date: msgDate,
+          formattedDate: formatDateForGroup(message.timestamp),
+          messages: [message],
+        });
+      }
+      return acc;
+    }, []);
+  };
+
+  // Group reactions
+  const groupReactions = (reactions) => {
+    const grouped = reactions.reduce((acc, r) => {
+      if (!acc[r.emoji]) acc[r.emoji] = { count: 0, byMe: false };
+      acc[r.emoji].count++;
+      if (r.by === currentUserEmail) acc[r.emoji].byMe = true;
+      return acc;
+    }, {});
+    return grouped;
+  };
+
+  const commonReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+  if (loading) {
+    return <div className={styles.appContainer}>Loading chats...</div>;
+  }
+
+  return (
+    <div className={`${styles.appContainer} ${darkMode ? styles.darkMode : ""}`}>
+      {notification && (
+        <div className={`${styles.notification} ${styles[notification.type]}`}>
+          {notification.message}
+        </div>
+      )}
+
+      {/* Sidebar */}
+      <div className={`${styles.sidebar} ${isMobile() && mobileView !== "chats" ? styles.hidden : ""}`}>
+        <div className={styles.sidebarHeader}>
+          <div className={styles.searchBox}>
+            <FiSearch className={styles.searchIcon} />
+            <input
+              className={styles.advancedInput}
+              type="text"
+              placeholder="Search or start new chat"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button className={styles.clearSearch} onClick={() => setSearchTerm("")}>
+                <FiX />
+              </button>
+            )}
+          </div>
+          <div className={styles.sidebarActions}>
+            <button onClick={() => setDarkMode(!darkMode)}>
+              {darkMode ? <FiSun /> : <FiMoon />}
+            </button>
+          </div>
+        </div>
+        <div className={styles.chatsList}>
+          {chatList
+            .filter(
+              (chat) =>
+                chat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                chat.lastMessage?.text?.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .map((chat) => (
+              <div
+                key={chat.id}
+                className={`${styles.chatItem} ${activeChat?.id === chat.id ? styles.active : ""}`}
+                onClick={() => handleChatSelect(chat)}
+              >
+                <div className={styles.avatarContainer}>
+                  <img src={chat.avatar} alt={chat.name} />
+                  <span className={`${styles.status} ${chat.status === "online" ? styles.online : styles.offline}`}></span>
+                </div>
+                <div className={styles.chatInfo}>
+                  <div className={styles.chatHeader}>
+                    <span className={styles.chatName}>{chat.name}</span>
+                    <span className={styles.chatTime}>
+                      {chat.lastMessage ? formatTime(chat.lastMessage.timestamp) : ""}
+                    </span>
+                  </div>
+                  <div className={styles.chatPreview}>
+                    <p>
+                      {chat.lastMessage
+                        ? chat.lastMessage.sender === currentUserEmail
+                          ? `You: ${chat.lastMessage.text}`
+                          : chat.lastMessage.text
+                        : "No messages yet"}
+                    </p>
+                    {chat.lastMessage?.sender === currentUserEmail && (
+                      <IoCheckmarkDone
+                        className={`${styles.readReceipt} ${chat.lastMessage.status === "read" ? styles.read : ""}`}
+                      />
+                    )}
+                    {chat.unreadCount > 0 && (
+                      <span className={styles.unreadBadge}>{chat.unreadCount}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+        </div>
+      </div>
+
+      {/* Chat area */}
+      <div className={`${styles.chatArea} ${isMobile() && mobileView !== "messages" ? styles.hidden : ""}`}>
+        {activeChat ? (
+          <>
+            <div className={styles.chatHeader}>
+              {isMobile() && (
+                <button className={styles.backButton} onClick={() => setMobileView("chats")}>
+                  <FiArrowLeft />
+                </button>
+              )}
+              <div
+                className={styles.chatUser}
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`${apiBaseUrl}/api/users/${activeChat.email}`, {
+                      method: "GET",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      credentials: "include",
+                    });
+                    if (!response.ok) throw new Error(await response.text());
+                    const user = await response.json();
+                    setProfileUser(user);
+                    if (isMobile()) setMobileView("profile");
+                  } catch (error) {
+                    showNotification(error.message, "error");
+                  }
+                }}
+              >
+                <div className={styles.avatarContainer}>
+                  <img src={activeChat.avatar} alt={activeChat.name} />
+                  <span
+                    className={`${styles.status} ${activeChat.status === "online" ? styles.online : styles.offline}`}
+                  ></span>
+                </div>
+                <div className={styles.userInfo}>
+                  <h3>{activeChat.name}</h3>
+                  <p>{activeChat.status === "online" ? "Online" : `Last seen ${activeChat.lastSeen || "recently"}`}</p>
+                </div>
+              </div>
+              <div className={styles.chatActions}>
+                <button>
+                  <FiSearch />
+                </button>
+                <button>
+                  <BsThreeDotsVertical />
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.messagesContainer}>
+              {groupMessagesByDate(messages).map((group, index) => (
+                <div key={index} className={styles.dateGroup}>
+                  <div className={styles.dateSeparator}>
+                    <span>{group.formattedDate}</span>
+                  </div>
+                  {group.messages.map((message) => {
+                    const groupedReactions = groupReactions(message.reactions || []);
+                    const isOwnMessage = message.sender === currentUserEmail;
+                    const isDeleted = message.isDeleted;
+                    return (
+                      <div
+                        key={message.id}
+                        className={`${styles.message} ${isOwnMessage ? styles.sent : styles.received} ${isDeleted ? styles.deletedMessage : ""}`}
+                        onContextMenu={(e) => handleContextMenu(e, message)}
+                      >
+                        {!isDeleted && message.replyTo && (
+                          <div className={styles.replyIndicator}>
+                            <div className={styles.replyLine}></div>
+                            <div className={styles.replyContent}>
+                              <span className={styles.replySender}>{message.replyTo.sender}</span>
+                              <p className={styles.replyText}>
+                                {message.replyTo.text?.substring(0, 50) || "Attachment"}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {isDeleted ? (
+                          <p>{message.text}</p>
+                        ) : message.file ? (
+                          <div className={styles.fileMessage}>
+                            <div className={styles.filePreview}>
+                              {message.file.type.startsWith("image/") ? (
+                                <img src={message.file.url} alt={message.file.name} />
+                              ) : (
+                                <div className={styles.fileIcon}>
+                                  📄
+                                  <span>{message.file.type.split("/")[1]?.toUpperCase() || "FILE"}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className={styles.fileInfo}>
+                              <p>{message.file.name}</p>
+                              <span>{Math.round(message.file.size / 1024)} KB</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className={styles.textMSG}>{message.text}</p>
+                        )}
+                        <div className={styles.messageMeta}>
+                          <span>{formatTime(message.timestamp)}</span>
+                          {!isDeleted && message.isEdited && (
+                            <span className={styles.editedLabel}>(edited)</span>
+                          )}
+                          {!isDeleted && isOwnMessage && (
+                            <IoCheckmarkDone
+                              className={`${styles.readReceipt} ${message.status === "read" ? styles.read : ""}`}
+                            />
+                          )}
+                        </div>
+                        {!isDeleted && Object.keys(groupedReactions).length > 0 && (
+                          <div
+                            className={`${styles.reactions} ${isOwnMessage ? styles.sentReactions : styles.receivedReactions}`}
+                          >
+                            {Object.entries(groupedReactions).map(([emoji, { count, byMe }], idx) => (
+                              <span
+                                key={idx}
+                                className={`${styles.reaction} ${byMe ? styles.myReaction : ""}`}
+                                onClick={() => (byMe ? removeReaction(message.id, emoji) : toggleReaction(message.id, emoji))}
+                              >
+                                {emoji} {count > 1 ? count : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+              {messageMenu && (
+                <div className={styles.messageMenu} ref={messageMenuRef}>
+                  <div className={styles.reactionPicker}>
+                    {commonReactions.map((emoji, idx) => (
+                      <button key={idx} onClick={() => toggleReaction(messageMenu, emoji)}>
+                        {emoji}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() =>
+                        setShowReactionPicker(showReactionPicker === messageMenu ? null : messageMenu)
+                      }
+                    >
+                      <BsEmojiSmile />
+                    </button>
+                  </div>
+                  {showReactionPicker === messageMenu && (
+                    <div className={styles.emojiPickerContainer} ref={emojiPickerRef}>
+                      <EmojiPicker
+                        onEmojiClick={(emojiData) => toggleReaction(messageMenu, emojiData.emoji)}
+                        width={300}
+                        height={350}
+                      />
+                    </div>
+                  )}
+                  <div className={styles.messageActions}>
+                    <button
+                      onClick={() => {
+                        const message = messages.find((m) => m.id === messageMenu);
+                        setReplyingTo(message);
+                        setMessageMenu(null);
+                        inputRef.current.focus();
+                      }}
+                    >
+                      <BsReply /> Reply
+                    </button>
+                    {(() => {
+                      const message = messages.find((m) => m.id === messageMenu);
+                      const isOwn = message?.sender === currentUserEmail;
+                      return (
+                        <>
+                          {isOwn && (
+                            <button onClick={() => startEditing(message)}>
+                              <FiEdit /> Edit
+                            </button>
+                          )}
+                          <button onClick={() => deleteForMe(messageMenu)}>
+                            <FiTrash2 /> Delete for me
+                          </button>
+                          {isOwn && (
+                            <button onClick={() => deleteForEveryone(messageMenu)}>
+                              <FiTrash2 /> Delete for everyone
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {(replyingTo || editingMessage) && (
+              <div className={styles.replyPreview}>
+                <div className={styles.replyPreviewContent}>
+                  <div className={styles.replyPreviewHeader}>
+                    <span>
+                      {editingMessage
+                        ? "Editing message"
+                        : `Replying to ${replyingTo?.sender === currentUserEmail ? "your message" : activeChat.name}`}
+                    </span>
+                    <button onClick={cancelReply}>
+                      <FiX />
+                    </button>
+                  </div>
+                  <p>{editingMessage ? editingMessage.text : replyingTo.text}</p>
+                </div>
+              </div>
+            )}
+
+            <form className={styles.messageInput} onSubmit={handleSendMessage}>
+              <div className={styles.inputContainer}>
+                <button
+                  type="button"
+                  className={styles.emojiButton}
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                >
+                  <BsEmojiSmile />
+                </button>
+                {showEmojiPicker && (
+                  <div className={styles.emojiPickerContainer} ref={emojiPickerRef}>
+                    <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={350} />
+                  </div>
+                )}
+                <textarea
+                  placeholder="Type a message"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  ref={inputRef}
+                  className={styles.advancedInput}
+                  rows={1}
+                />
+                <div className={styles.attachmentMenu}>
+                  <button
+                    type="button"
+                    className={styles.attachmentButton}
+                    onClick={() => fileInputRef.current.click()}
+                  >
+                    <FiPaperclip />
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    style={{ display: "none" }}
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className={styles.sendButton}
+                disabled={!inputText.trim() && !replyingTo && !editingMessage}
+              >
+                {inputText.trim() || editingMessage ? <IoSend /> : <FiMic />}
+              </button>
+            </form>
+          </>
+        ) : (
+          <div className={styles.noChatSelected}>
+            <div className={styles.noChatContent}>
+              <h2>WhatsApp Web</h2>
+              <p>Select a chat to start messaging</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Profile sidebar */}
+      {profileUser && (
+        <div className={`${styles.profileSidebar} ${isMobile() && mobileView !== "profile" ? styles.hidden : ""}`}>
+          <div className={styles.profileHeader}>
+            <div style={{ width: "24px" }}></div>
+            <h3>Profile</h3>
+            <button
+              onClick={() => {
+                setProfileUser(null);
+                if (isMobile()) setMobileView(activeChat ? "messages" : "chats");
+              }}
+            >
+              <IoMdClose />
+            </button>
+          </div>
+          <div className={styles.profileContent}>
+            <div className={styles.profileAvatar}>
+              <img src={profileUser.avatar} alt={profileUser.name} />
+              <div className={styles.profileStatus}>
+                <span
+                  className={`${styles.statusIndicator} ${profileUser.status === "online" ? styles.online : styles.offline}`}
+                ></span>
+              </div>
+            </div>
+            <div className={styles.profileDetails}>
+              <h3>{profileUser.name}</h3>
+              <p className={styles.profileAbout}>{profileUser.about}</p>
+              <div className={styles.profileMeta}>
+                <div className={styles.metaItem}>
+                  <span className={styles.metaLabel}>Phone:</span>
+                  <span className={styles.metaValue}>{profileUser.phone}</span>
+                </div>
+                <div className={styles.metaItem}>
+                  <span className={styles.metaLabel}>Status:</span>
+                  <span className={styles.metaValue}>
+                    {profileUser.status === "online" ? "Online" : `Last seen ${profileUser.lastSeen || "recently"}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ChatApp;
+```

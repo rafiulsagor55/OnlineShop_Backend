@@ -60,7 +60,7 @@ public class GoogleLoginController {
         }	
 
 		Cookie cookie = new Cookie("token", userService.tokenBuilder(email, ip, userAgent));
-		cookie.setHttpOnly(true);
+//		cookie.setHttpOnly(true);
 		cookie.setSecure(false); 
 		cookie.setPath("/");
 		cookie.setMaxAge(7 * 24 * 60 * 60);

@@ -7,8 +7,10 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
@@ -20,6 +22,8 @@ public class FilterController {
 
     @Autowired
     private UserService userService;
+    @Autowired
+    private NotificationService notificationService;
 
     @PostMapping("/save-filters")
     public ResponseEntity<String> saveFilters(
@@ -39,6 +43,13 @@ public class FilterController {
                         .body("Your session has expired or the token is invalid. Please log in again to continue.");
             }
             filterService.saveFilters(filters);
+            notificationService.createActivityLog(ActivityLog.builder()
+			        .id(UUID.randomUUID().toString())
+			        .title(String.format("Filter option updated"))
+			        .message(String.format("Filter option of  \"%s\" has been successfully updated.",filters.get("gender").get(0)))
+			        .timestamp(new Timestamp(System.currentTimeMillis()))
+			        .type("filter")
+			        .build());
             return ResponseEntity.ok("Filters saved successfully.");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());

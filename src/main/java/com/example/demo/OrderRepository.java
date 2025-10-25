@@ -166,6 +166,56 @@ public class OrderRepository {
         }
     }
 
+    public String getEmailBySerialId(Long serialId) {
+        String sql = "SELECT email FROM orders WHERE serialId = :serialId";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("serialId", serialId);
+
+        try {
+            return jdbcTemplate.queryForObject(sql, params, String.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    public Long getSerialIdbyUUID(String UUID) {
+        String sql = "SELECT serialId FROM orders WHERE UUID = :UUID";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("UUID", UUID);
+
+        try {
+            return jdbcTemplate.queryForObject(sql, params, Long.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    public Order getOrderByEmailAndId(String email, Long serialId) {
+        String sql = "SELECT UUID, serialId, date, status, customer, email, contact, address, " +
+                     "deliveryMethod, paymentMethod, payment, processedDate, " +
+                     "shippedDate, deliveredDate, readyDate, pickedDate, cancelledDate " +
+                     "FROM orders WHERE email = :email AND serialId = :serialId";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("email", email)
+                .addValue("serialId", serialId);
+
+        List<Order> orders = jdbcTemplate.query(sql, params, new BeanPropertyRowMapper<>(Order.class));
+        return orders.isEmpty() ? null : orders.get(0);
+    }
+
+    public List<Item> getOrderItemsByOrderUUID(String orderUUID) {
+        String sql = "SELECT item_id, productId, color, size, quantity, order_UUID, price, name " +
+                     "FROM order_items WHERE order_UUID = :orderUUID";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("orderUUID", orderUUID);
+
+        return jdbcTemplate.query(sql, params, new BeanPropertyRowMapper<>(Item.class));
+    }
+
 
 
 }

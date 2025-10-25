@@ -59,5 +59,22 @@ public class CartService {
     public void DeleteFromCart(String id) {
     	cartRepository.deleteCartItem(id);
     }
+    
+    public void updateCartItemCount(String email, int count) {
+        if (email == null || email.isEmpty()) {
+            throw new IllegalArgumentException("Email cannot be null or empty");
+        }
+        if (!cartRepository.isEmailValid(email)) {
+            throw new IllegalArgumentException("Invalid email: " + email);
+        }
+        cartRepository.updateCartItemCount(email, count);
+    }
+
+    public int getCartItemCount(String email) {
+        if (email == null || email.isEmpty()) {
+            throw new IllegalArgumentException("Email cannot be null or empty");
+        }
+        return cartRepository.getCartItemCount(email);
+    }
 
 }

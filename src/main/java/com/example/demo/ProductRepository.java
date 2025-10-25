@@ -94,6 +94,65 @@ public class ProductRepository {
 		// Insert product colors
 		insertColors(product.getId(), product.getColors());
 	}
+	
+	public void updateProduct(Product product) {
+	    // 1. Update product details
+	    String updateProductSql = "UPDATE product SET " +
+	            "name = :name, description = :description, type = :type, brand = :brand, " +
+	            "material = :material, category = :category, availability = :availability, " +
+	            "price = :price, discount = :discount, rating = :rating, " +
+	            "delivery_info = :deliveryInfo, return_policy = :returnPolicy, " +
+	            "trust_info = :trustInfo, sizeDetails = :sizeDetails, gender = :gender " +
+	            "WHERE id = :id";
+
+	    MapSqlParameterSource productParams = new MapSqlParameterSource();
+	    productParams.addValue("id", product.getId());
+	    productParams.addValue("name", product.getName());
+	    productParams.addValue("description", product.getDescription());
+	    productParams.addValue("type", product.getType());
+	    productParams.addValue("brand", product.getBrand());
+	    productParams.addValue("material", product.getMaterial());
+	    productParams.addValue("category", product.getCategory());
+	    productParams.addValue("availability", product.getAvailability());
+	    productParams.addValue("price", product.getPrice());
+	    productParams.addValue("discount", product.getDiscount());
+	    productParams.addValue("rating", product.getRating());
+	    productParams.addValue("deliveryInfo", product.getDeliveryInfo());
+	    productParams.addValue("returnPolicy", product.getReturnPolicy());
+	    productParams.addValue("trustInfo", product.getTrustInfo());
+	    productParams.addValue("sizeDetails", product.getSizeDetails());
+	    productParams.addValue("gender", product.getGender());
+
+	    int rows = jdbcTemplate.update(updateProductSql, productParams);
+	    if (rows == 0) {
+	        throw new IllegalArgumentException("No product found with id: " + product.getId());
+	    }
+
+	    // 2. Update sizes (delete old → insert new)
+	    deleteSizes(product.getId());
+	    insertSizes(product.getId(), product.getSizes());
+
+	    // 3. Update colors (delete old → insert new)
+	    deleteColors(product.getId());
+	    insertColors(product.getId(), product.getColors());
+	}
+
+	// Delete existing sizes
+	private void deleteSizes(String productId) {
+	    String sql = "DELETE FROM product_sizes WHERE product_id = :productId";
+	    MapSqlParameterSource params = new MapSqlParameterSource()
+	            .addValue("productId", productId);
+	    jdbcTemplate.update(sql, params);
+	}
+
+	// Delete existing colors
+	private void deleteColors(String productId) {
+	    String sql = "DELETE FROM product_colors WHERE product_id = :productId";
+	    MapSqlParameterSource params = new MapSqlParameterSource()
+	            .addValue("productId", productId);
+	    jdbcTemplate.update(sql, params);
+	}
+
 
 	// Insert sizes for product
 	private void insertSizes(String productId, List<String> sizes) {

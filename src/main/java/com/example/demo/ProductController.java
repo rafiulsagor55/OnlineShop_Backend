@@ -1,5 +1,8 @@
 package com.example.demo;
 
+import java.sql.Timestamp;
+import java.util.UUID;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +18,8 @@ public class ProductController {
     private ProductService productService;
     @Autowired
     private UserService userService;
+    @Autowired
+    private NotificationService notificationService;
 
     @GetMapping("/{id}")
     public Product getProductById(@PathVariable String id) {
@@ -32,6 +37,13 @@ public class ProductController {
 				ip = request.getRemoteAddr();
 			if(userService.checkTokenValidityAdmin(jwt, ip, userAgent)) {
 				productService.saveProduct(product);
+				notificationService.createActivityLog(ActivityLog.builder()
+				        .id(UUID.randomUUID().toString())
+				        .title(String.format("Add new product"))
+				        .message(String.format("The product \"%s\" has been successfully added to the catalog with ID: %s.", product.getName(), product.getId()))
+				        .timestamp(new Timestamp(System.currentTimeMillis()))
+				        .type("product-add")
+				        .build());
 				return ResponseEntity.ok("Product added successfully!");
 			}
 			else {
@@ -121,8 +133,14 @@ public class ProductController {
 			if (ip == null)
 				ip = request.getRemoteAddr();
 			if(userService.checkTokenValidityAdmin(jwt, ip, userAgent)) {
-				productService.DeleteProductById(product.getId());
-	            productService.saveProduct(product);
+	            productService.updateProduct(product);
+	            notificationService.createActivityLog(ActivityLog.builder()
+				        .id(UUID.randomUUID().toString())
+				        .title(String.format("Product Edited"))
+				        .message(String.format("The product \"%s\" has been successfully edited to the catalog with ID: %s.", product.getName(), product.getId()))
+				        .timestamp(new Timestamp(System.currentTimeMillis()))
+				        .type("product-edit")
+				        .build());
 				return ResponseEntity.ok("Edited product saved successfully!");
 			}
 			else {
@@ -143,6 +161,13 @@ public class ProductController {
 				ip = request.getRemoteAddr();
 			if(userService.checkTokenValidityAdmin(jwt, ip, userAgent)) {
 				productService.DeleteProductById(selectedProductId);
+				notificationService.createActivityLog(ActivityLog.builder()
+				        .id(UUID.randomUUID().toString())
+				        .title(String.format("Product Deleted"))
+				        .message(String.format("The product \"%s\" has been successfully deleted.", selectedProductId))
+				        .timestamp(new Timestamp(System.currentTimeMillis()))
+				        .type("product-delete")
+				        .build());
 				return ResponseEntity.ok("Product "+selectedProductId+" deleted successfully.");
 			}
 			else {

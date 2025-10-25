@@ -46,8 +46,8 @@ class updateOrder {
     private String payment;
     private Timestamp processedDate;
     private Timestamp shippedDate;
-    private Timestamp deliveredDate;
     private Timestamp readyDate;
+    private Timestamp deliveredDate;   
     private Timestamp pickedDate;
     private Timestamp cancelledDate;
 
@@ -67,3 +67,5 @@ class Item{
     private double price;
     private int quantity;
 }
+
+

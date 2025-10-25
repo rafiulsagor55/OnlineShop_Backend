@@ -184,3 +184,40 @@ CREATE TABLE review_votes (
 
  INSERT INTO admin (email, password)
  VALUES ('onlineshop@gmail.com', '123456');
+ 
+ 
+ CREATE TABLE notifications (
+    id VARCHAR(100) PRIMARY KEY,
+    email VARCHAR(50) NOT NULL,
+    title VARCHAR(100),
+    message TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `read` BOOLEAN DEFAULT FALSE,
+    type VARCHAR(100),
+    serialId long,
+ FOREIGN KEY (email) REFERENCES users(email) ON DELETE CASCADE
+);
+
+CREATE TABLE newItemsCounter (
+    email VARCHAR(255) PRIMARY KEY,
+    notifications INT DEFAULT 0,
+    cartItems INT DEFAULT 0,
+    FOREIGN KEY (email) REFERENCES users(email) ON DELETE CASCADE
+);
+
+
+CREATE TABLE WebSocketCode (
+    email VARCHAR(255) PRIMARY KEY,
+    code VARCHAR(255),
+    FOREIGN KEY (email) REFERENCES users(email) ON DELETE CASCADE
+);
+
+
+CREATE TABLE ActivityLog (
+    id VARCHAR(100) PRIMARY KEY,
+    title VARCHAR(100),
+    message TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    type VARCHAR(100)
+);
+
